@@ -144,11 +144,11 @@ def batch_classify_test_set(test_directory, model_path="cough_classifier.pt"):
         print("Classification Summary")
         print("="*50)
         for disease, count in sorted(diseases.items()):
-            print(f"{disease}: {count} files ({count/total*100:.1f}%)")
+            print(f"{disease}: {count} files ({(count/total)*100:.1f}%)")
 
 
 if __name__ == "__main__":
-    # Example usage
-    # inference = CoughInference("cough_classifier.pt")
-    # result = inference.classify_audio("path/to/audio.wav")
-    # print(result)
+    # Example: Classify all audio files in the default 'audio_data' directory
+    # This directory is created when you run `download_dataset.py`
+    print("Running batch classification on 'audio_data' directory...")
+    batch_classify_test_set("audio_data")

@@ -11,14 +11,19 @@ import librosa
 import warnings
 warnings.filterwarnings('ignore')
 
-# Disease classifications
+# Disease classifications based on provided datasets:
+# 1. vbookshelf/respiratory-sound-database: Healthy, Asthma, Bronchitis, URTI (Cold Cough)
+# 2. andrewmvd/covid19-cough-audio-classification: COVID-19, Healthy, Other
+# 3. ruchikashirsath/tb-audio: Tuberculosis, Pneumonia, and other respiratory conditions
+
 DISEASE_CLASSES = {
-    0: "Healthy",
-    1: "Cold Cough",
-    2: "COVID-19",
-    3: "Asthma",
-    4: "Bronchitis",
-    5: "Whooping Cough"
+    0: "Healthy",           # From all datasets
+    1: "Cold Cough",        # Mapped from URTI (Respiratory Sound Database)
+    2: "COVID-19",          # From COVID-19 Cough Classification dataset
+    3: "Asthma",            # From Respiratory Sound Database
+    4: "Bronchitis",        # From Respiratory Sound Database
+    5: "Tuberculosis",      # From TB Audio dataset
+    6: "Pneumonia"          # From TB Audio dataset
 }
 
 NUM_CLASSES = len(DISEASE_CLASSES)
