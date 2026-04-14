@@ -20,10 +20,11 @@ DATASETS = [
 DOWNLOAD_DIR = Path("./kaggle_datasets")
 
 # Maximum number of audio files to keep from each dataset
+# Set to very high to keep ALL files (full dataset)
 MAX_FILES_PER_DATASET = {
-    "vbookshelf/respiratory-sound-database": 10,      # ~10 MB (was 3.7 GB)
-    "andrewmvd/covid19-cough-audio-classification": 10,  # ~10 MB (was 1 GB)
-    "ruchikashirsath/tb-audio": 10                      # ~10 MB (was 2 GB)
+    "vbookshelf/respiratory-sound-database": 999999,      # Keep all
+    "andrewmvd/covid19-cough-audio-classification": 999999,  # Keep all
+    "ruchikashirsath/tb-audio": 999999                      # Keep all
 }
 
 # --- Helper Functions ---
