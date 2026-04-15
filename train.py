@@ -16,7 +16,8 @@ def train_model(
     epochs=50,
     learning_rate=0.001,
     train_split=0.8,
-    output_model="cough_classifier.pt"
+    output_model="cough_classifier.pt",
+    max_samples=200
 ):
     """
     Train the cough classifier model.
@@ -49,7 +50,7 @@ def train_model(
     
     # Load dataset
     print(f"\nLoading dataset from '{audio_dir}'...")
-    dataset = CoughAudioDataset(audio_dir)
+    dataset = CoughAudioDataset(audio_dir, max_samples=max_samples)
     print(f"Total samples: {len(dataset)}")
     
     if len(dataset) == 0:
@@ -102,8 +103,8 @@ def main():
     parser.add_argument(
         "--epochs",
         type=int,
-        default=50,
-        help="Number of training epochs (default: 50)"
+        default=10,
+        help="Number of training epochs (default: 10)"
     )
     parser.add_argument(
         "--learning-rate",
@@ -123,6 +124,12 @@ def main():
         default="cough_classifier.pt",
         help="Path to save the trained model (default: cough_classifier.pt)"
     )
+    parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=200,
+        help="Maximum number of samples to use for training (default: 200)"
+    )
     
     args = parser.parse_args()
     
@@ -132,7 +139,8 @@ def main():
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         train_split=args.train_split,
-        output_model=args.output
+        output_model=args.output,
+        max_samples=args.max_samples
     )
 
 

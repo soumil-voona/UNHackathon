@@ -38,7 +38,7 @@ class CoughAudioDataset(Dataset):
     Custom Dataset for loading and processing cough audio files.
     Expects audio files organized in folders by disease class.
     """
-    def __init__(self, audio_dir, sample_rate=SAMPLE_RATE, n_mels=N_MELS):
+    def __init__(self, audio_dir, sample_rate=SAMPLE_RATE, n_mels=N_MELS, max_samples=None):
         self.audio_dir = Path(audio_dir)
         self.sample_rate = sample_rate
         self.n_mels = n_mels
@@ -53,6 +53,11 @@ class CoughAudioDataset(Dataset):
                 for audio_file in audio_files:
                     self.audio_files.append(str(audio_file))
                     self.labels.append(class_idx)
+        
+        # Limit dataset size if max_samples is specified
+        if max_samples and len(self.audio_files) > max_samples:
+            self.audio_files = self.audio_files[:max_samples]
+            self.labels = self.labels[:max_samples]
         
         # Mel-spectrogram transform
         self.mel_transform = T.MelSpectrogram(
