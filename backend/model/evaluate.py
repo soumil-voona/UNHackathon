@@ -14,7 +14,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 from torch.utils.data import DataLoader
-from main import CoughClassifier, CoughClassifierTrainer, CoughAudioDataset, DISEASE_CLASSES, NUM_CLASSES
+from backend.main import CoughClassifier, CoughClassifierTrainer, CoughAudioDataset, DISEASE_CLASSES, NUM_CLASSES
 
 
 def evaluate_model_on_dataset(model, test_loader, device):

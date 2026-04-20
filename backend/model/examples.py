@@ -5,7 +5,7 @@ This script demonstrates how to use all the major components.
 
 import torch
 from pathlib import Path
-from main import CoughClassifier, CoughClassifierTrainer, CoughAudioDataset, NUM_CLASSES, DISEASE_CLASSES
+from backend.main import CoughClassifier, CoughClassifierTrainer, CoughAudioDataset, NUM_CLASSES, DISEASE_CLASSES
 from torch.utils.data import DataLoader, random_split
 
 
@@ -52,7 +52,7 @@ def example_2_batch_prediction():
     print("Example 2: Batch Prediction")
     print("="*60)
     
-    from inference import CoughInference
+    from backend.inference import CoughInference
     
     inference = CoughInference(model_path="cough_classifier.pt")
     results = inference.classify_multiple("test_audio_directory/")

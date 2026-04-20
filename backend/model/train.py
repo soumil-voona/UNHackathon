@@ -7,7 +7,7 @@ import torch
 import argparse
 from pathlib import Path
 from torch.utils.data import DataLoader, random_split
-from main import CoughClassifier, CoughClassifierTrainer, CoughAudioDataset, NUM_CLASSES
+from backend.main import CoughClassifier, CoughClassifierTrainer, CoughAudioDataset, NUM_CLASSES
 
 
 def train_model(

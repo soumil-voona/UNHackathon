@@ -112,7 +112,7 @@ const pipelineSteps = [
   },
   {
     title: "Classification Output",
-    meta: "4-class probabilities / confidence score",
+    meta: "6-class probabilities / confidence score",
     detail:
       "Surfaces interpretable probability bands and escalation logic so the product reads like a triage tool rather than a black box.",
     accent: "#00FF94",
@@ -152,21 +152,21 @@ const researchCards = [
 
 const teamMembers = [
   {
-    name: "Aarav Menon",
+    name: "Srijayan Pallerla",
     role: "Audio Pipeline & MFCC",
     bio: "Builds the browser-side acquisition, signal conditioning, and feature extraction flow for low-friction respiratory capture.",
     href: "https://www.linkedin.com/",
     palette: ["#00E5FF", "#7B2FBE"],
   },
   {
-    name: "Sofia Laurent",
-    role: "ML Model Training",
-    bio: "Focuses on classifier architecture, dataset alignment, and confidence calibration for interpretable respiratory screening.",
+    name: "Siddharth Lakshmi Narayanan",
+    role: "ML Model Training & API Integration",
+    bio: "Focuses on classifier architecture, dataset alignment, confidence calibration for interpretable respiratory screening, and backend to frontend connection",
     href: "https://www.linkedin.com/",
     palette: ["#7B2FBE", "#00FF94"],
   },
   {
-    name: "Malik Brooks",
+    name: "Soumil Voona",
     role: "Frontend & Visualization",
     bio: "Designs the interface layer that translates waveforms, inference states, and scientific credibility into a judge-ready experience.",
     href: "https://www.linkedin.com/",
@@ -530,6 +530,8 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
   const [remaining, setRemaining] = useState(3);
   const [status, setStatus] = useState("Awaiting microphone input.");
   const [downloadUrl, setDownloadUrl] = useState("");
+  const [predictions, setPredictions] = useState<Record<string, number> | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const waveformCanvas = waveformRef.current;
@@ -678,6 +680,8 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
       setStatus("Microphone armed. Capturing a 3-second cough sample...");
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       setDownloadUrl("");
+      setPredictions(null);
+      setIsProcessing(false);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       const audioContext = new window.AudioContext();
@@ -696,10 +700,65 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunksRef.current.push(event.data);
       };
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
         const url = URL.createObjectURL(blob);
         setDownloadUrl(url);
+        
+        // Send to FastAPI backend
+        setIsProcessing(true);
+        setStatus("Converting audio format...");
+        const startTime = Date.now();
+        console.log("Recording blob size:", blob.size, "type:", blob.type);
+        
+        try {
+          const formData = new FormData();
+          formData.append("audio", blob, "recording.webm");
+          
+          const apiUrl = "http://127.0.0.1:8000/predict";
+          console.log("Sending to", apiUrl);
+          
+          // Update status every second while waiting
+          const statusInterval = setInterval(() => {
+            const elapsedSeconds = Math.round((Date.now() - startTime) / 1000);
+            setStatus(`Processing audio... (${elapsedSeconds}s)`);
+          }, 1000);
+          
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            body: formData,
+          });
+          
+          clearInterval(statusInterval);
+          const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(2);
+          console.log("Response status:", response.status, response.statusText, `(${elapsedSeconds}s)`);
+          
+          const data = await response.json();
+          console.log("Response data:", data);
+          
+          if (response.ok) {
+            if (data.prediction && data.prediction.all_probabilities) {
+              // Extract probabilities from response
+              const predDict = data.prediction.all_probabilities;
+              console.log("Probabilities:", predDict);
+              setPredictions(predDict);
+              const processingTime = data.processing_time ? data.processing_time.toFixed(2) : elapsedSeconds;
+              setStatus(`✓ Classification: ${data.prediction.predicted_disease} (${(data.prediction.confidence * 100).toFixed(1)}% confidence) - completed in ${processingTime}s`);
+            } else {
+              setStatus("Received response but no predictions found");
+              console.error("Invalid response format:", data);
+            }
+          } else {
+            setStatus(`Error: ${data.detail || data.error || response.statusText}`);
+            console.error("API error response:", data);
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          setStatus(`Connection error: ${errorMsg}. Make sure backend is running on http://127.0.0.1:8000`);
+          console.error("Full API error:", error);
+        } finally {
+          setIsProcessing(false);
+        }
       };
 
       recorder.start();
@@ -823,32 +882,60 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
         <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 sm:p-6 xl:p-7">
           <div className="space-y-4">
             <div>
-              <p className="mono-label text-xs">Simulated inference output</p>
+              <p className="mono-label text-xs">{isProcessing ? "Processing..." : "Inference output"}</p>
               <h4 className="mt-2 text-2xl font-bold text-white">Probability distribution</h4>
               <p className="mt-2 font-mono text-sm text-slate-300/70">
-                Awaiting model inference — connect your TF.js classifier here.
+                {status}
               </p>
             </div>
 
-            {[
-              { label: "COVID-like", value: 0.68, color: "#FF4D4D" },
-              { label: "TB-like", value: 0.62, color: "#FF8A3D" },
-              { label: "Asthma", value: 0.39, color: "#FDE047" },
-              { label: "Healthy", value: 0.24, color: "#00FF94" },
-            ].map((item) => (
-              <div key={item.label} className="space-y-2">
-                <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
-                  <span>{item.label}</span>
-                  <span>{Math.round(item.value * 100)}%</span>
-                </div>
-                <div className="progress-track h-3">
-                  <div
-                    className="progress-fill h-full"
-                    style={{ width: `${item.value * 100}%`, backgroundColor: item.color, color: item.color }}
-                  />
-                </div>
-              </div>
-            ))}
+            {predictions
+              ? [
+                  { label: "COVID-19", color: "#FF4D4D" },
+                  { label: "Tuberculosis", color: "#FF8A3D" },
+                  { label: "Bronchitis", color: "#FFB82F" },
+                  { label: "Asthma", color: "#FDE047" },
+                  { label: "Cold Cough", color: "#87CEEB" },
+                  { label: "Healthy", color: "#00FF94" },
+                ]
+                  .map((item) => {
+                    const value = predictions[item.label] ?? 0;
+                    return (
+                      <div key={item.label} className="space-y-2">
+                        <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
+                          <span>{item.label}</span>
+                          <span>{Math.round(value * 100)}%</span>
+                        </div>
+                        <div className="progress-track h-3">
+                          <div
+                            className="progress-fill h-full"
+                            style={{ width: `${value * 100}%`, backgroundColor: item.color, color: item.color }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+              : [
+                  { label: "COVID-19", value: 0.68, color: "#FF4D4D" },
+                  { label: "Tuberculosis", value: 0.62, color: "#FF8A3D" },
+                  { label: "Bronchitis", value: 0.51, color: "#FFB82F" },
+                  { label: "Asthma", value: 0.39, color: "#FDE047" },
+                  { label: "Cold Cough", value: 0.28, color: "#87CEEB" },
+                  { label: "Healthy", value: 0.24, color: "#00FF94" },
+                ].map((item) => (
+                  <div key={item.label} className="space-y-2">
+                    <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
+                      <span>{item.label}</span>
+                      <span>{Math.round(item.value * 100)}%</span>
+                    </div>
+                    <div className="progress-track h-3">
+                      <div
+                        className="progress-fill h-full"
+                        style={{ width: `${item.value * 100}%`, backgroundColor: item.color, color: item.color }}
+                      />
+                    </div>
+                  </div>
+                ))}
 
             <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
               <div className="flex items-start gap-3">
@@ -856,7 +943,7 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                 <div>
                   <p className="font-[Space_Grotesk] font-bold">Consult a healthcare provider</p>
                   <p className="mt-1 text-red-100/80">
-                    Placeholder escalation logic is active because COVID-like or TB-like probability exceeds the 60% threshold.
+                    Placeholder escalation logic is active because COVID-19 or Tuberculosis probability exceeds the 60% threshold.
                   </p>
                 </div>
               </div>
@@ -1152,7 +1239,7 @@ export default function Home() {
                   Clinical AI / Edge-ready / Phone-native
                 </div>
                 <div data-hero-item className="mt-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 font-mono text-xs uppercase tracking-[0.18em] text-slate-300/68">
-                  Hackathon-ready respiratory screening narrative
+                  respiratory screening narrative
                 </div>
                 <h1 data-hero-item className="section-title text-balance mt-6 max-w-3xl text-white">
                   CoughNet

@@ -3,7 +3,7 @@
 
 import sys
 from pathlib import Path
-from main import CoughAudioDataset, DISEASE_CLASSES
+from backend.main import CoughAudioDataset, DISEASE_CLASSES
 
 print("DISEASE_CLASSES mapping:")
 for class_idx, class_name in DISEASE_CLASSES.items():

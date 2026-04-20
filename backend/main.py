@@ -22,8 +22,7 @@ DISEASE_CLASSES = {
     2: "COVID-19",          # From COVID-19 Cough Classification dataset
     3: "Asthma",            # From Respiratory Sound Database
     4: "Bronchitis",        # From Respiratory Sound Database
-    5: "Tuberculosis",      # From TB Audio dataset
-    6: "Pneumonia"          # From TB Audio dataset
+    5: "Tuberculosis"       # From TB Audio dataset
 }
 
 NUM_CLASSES = len(DISEASE_CLASSES)
@@ -263,11 +262,25 @@ class CoughClassifierTrainer:
     
     def predict(self, audio_path):
         """Predict the disease class for a given audio file"""
+        import time as timing_module
+        t0 = timing_module.time()
+        
         self.model.eval()
         
-        # Load and process audio
-        waveform, sr = torchaudio.load(audio_path)
+        # Load audio with librosa (fastest method for webm)
+        try:
+            # Load mono at 16kHz for speed
+            audio_data, sr = librosa.load(audio_path, sr=SAMPLE_RATE, mono=True)
+            print(f"  Loaded in {timing_module.time()-t0:.2f}s")
+            # Convert to torch tensor
+            waveform = torch.FloatTensor(audio_data).unsqueeze(0)
+        except Exception as e:
+            print(f"  Error loading with librosa: {e}")
+            waveform, sr = torchaudio.load(audio_path)
         
+        t1 = timing_module.time()
+        
+        # Resample if necessary
         if sr != SAMPLE_RATE:
             resampler = T.Resample(sr, SAMPLE_RATE)
             waveform = resampler(waveform)
@@ -278,6 +291,9 @@ class CoughClassifierTrainer:
             waveform = torch.nn.functional.pad(waveform, (0, target_length - waveform.shape[1]))
         else:
             waveform = waveform[:, :target_length]
+        
+        print(f"  Audio processing in {timing_module.time()-t1:.2f}s")
+        t2 = timing_module.time()
         
         # Convert to mel-spectrogram
         mel_transform = T.MelSpectrogram(
@@ -293,11 +309,16 @@ class CoughClassifierTrainer:
         mel_spec = (mel_spec - mel_spec.mean()) / (mel_spec.std() + 1e-5)
         mel_spec = mel_spec.unsqueeze(0).to(self.device)
         
+        print(f"  MelSpec in {timing_module.time()-t2:.2f}s")
+        t3 = timing_module.time()
+        
         with torch.no_grad():
             output = self.model(mel_spec)
             probabilities = torch.softmax(output, dim=1)
             predicted_class = torch.argmax(output, dim=1).item()
             confidence = probabilities[0, predicted_class].item()
+        
+        print(f"  Model inference in {timing_module.time()-t3:.2f}s")
         
         return DISEASE_CLASSES[predicted_class], confidence, {
             DISEASE_CLASSES[i]: probabilities[0, i].item() for i in range(NUM_CLASSES)

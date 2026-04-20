@@ -78,7 +78,7 @@ def create_data_directories():
     """Create the audio_data directory structure."""
     print_step(4, "Creating data directories...")
     
-    from config import DISEASE_CLASSES
+    from backend.config import DISEASE_CLASSES
     
     data_dir = Path("audio_data")
     data_dir.mkdir(exist_ok=True)

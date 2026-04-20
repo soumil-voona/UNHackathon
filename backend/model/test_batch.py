@@ -3,7 +3,7 @@
 
 import torch
 from torch.utils.data import DataLoader
-from main import CoughAudioDataset
+from backend.main import CoughAudioDataset
 
 print("Loading dataset...")
 dataset = CoughAudioDataset("audio_data")

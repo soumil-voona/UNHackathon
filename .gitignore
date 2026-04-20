@@ -1,1 +1,8 @@
 node_modules/
+audio_data/
+*.pt
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.manus-logs/
