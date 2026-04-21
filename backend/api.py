@@ -39,14 +39,18 @@ app.add_middleware(
 # Configuration
 ALLOWED_EXTENSIONS = {'wav', 'mp3', 'm4a', 'flac', 'webm', 'ogg'}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = Path(__file__).parent / 'uploads'
 
 # Create upload folder if it doesn't exist
-Path(UPLOAD_FOLDER).mkdir(exist_ok=True)
+UPLOAD_FOLDER.mkdir(exist_ok=True)
+print(f"[INIT] Upload folder: {UPLOAD_FOLDER.absolute()}")
 
 # Initialize inference engine
 try:
     inference = CoughInference(model_path="cough_classifier.pt")
+    device = inference.trainer.device
+    print(f"\n✓ Model loaded successfully on device: {device}")
+    print(f"  GPU available: {torch.cuda.is_available()}")
     model_loaded = True
 except Exception as e:
     print(f"Warning: Could not load model: {e}")
@@ -114,11 +118,20 @@ async def predict(audio: UploadFile = File(...)):
     
     filepath = None
     try:
-        # Save uploaded file
-        filepath = os.path.join(UPLOAD_FOLDER, audio.filename)
+        # Save uploaded file with absolute path
+        filepath = UPLOAD_FOLDER / audio.filename
+        print(f"[PREDICT] Saving to: {filepath.absolute()}")
+        
         with open(filepath, "wb") as f:
             contents = await audio.read()
             f.write(contents)
+        
+        # Verify file exists before processing
+        if not filepath.exists():
+            raise FileNotFoundError(f"File was not saved correctly: {filepath.absolute()}")
+        
+        file_size = filepath.stat().st_size
+        print(f"[PREDICT] File saved: {file_size} bytes")
         
         save_time = time.time() - start_time
         print(f"[PREDICT] Saved in {save_time:.2f}s")
@@ -126,7 +139,7 @@ async def predict(audio: UploadFile = File(...)):
         # Make prediction
         print(f"[PREDICT] Starting inference...")
         inference_start = time.time()
-        result = inference.classify_audio(filepath)
+        result = inference.classify_audio(str(filepath.absolute()))
         inference_time = time.time() - inference_start
         print(f"[PREDICT] Inference: {inference_time:.2f}s")
         print(f"[PREDICT] Result: {result}")
@@ -143,15 +156,24 @@ async def predict(audio: UploadFile = File(...)):
     except Exception as e:
         print(f"[PREDICT] ERROR: {str(e)}")
         import traceback
-        traceback.print_exc()
+        error_trace = traceback.format_exc()
+        print(error_trace)
         return JSONResponse(
             status_code=500,
-            content={"error": f"Error processing audio: {str(e)}"}
+            content={
+                "error": f"Error processing audio: {str(e)}",
+                "type": type(e).__name__,
+                "traceback": error_trace
+            }
         )
     finally:
-        # Clean up
-        if filepath and os.path.exists(filepath):
-            os.remove(filepath)
+        # Clean up uploaded file
+        if filepath and filepath.exists():
+            try:
+                filepath.unlink()
+                print(f"[PREDICT] Cleaned up: {filepath}")
+            except Exception as e:
+                print(f"[PREDICT] Warning: Could not delete {filepath}: {e}")
 
 
 @app.post('/predict-url')

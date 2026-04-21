@@ -22,7 +22,8 @@ DISEASE_CLASSES = {
     2: "COVID-19",          # From COVID-19 Cough Classification dataset
     3: "Asthma",            # From Respiratory Sound Database
     4: "Bronchitis",        # From Respiratory Sound Database
-    5: "Tuberculosis"       # From TB Audio dataset
+    5: "Tuberculosis",      # From TB Audio dataset
+    6: "Pneumonia"          # From TB Audio dataset
 }
 
 NUM_CLASSES = len(DISEASE_CLASSES)
@@ -182,6 +183,15 @@ class CoughClassifierTrainer:
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer, mode='min', factor=0.5, patience=5, verbose=True
         )
+        
+        # Cache transforms for faster inference
+        self.mel_transform = T.MelSpectrogram(
+            sample_rate=SAMPLE_RATE,
+            n_mels=N_MELS,
+            n_fft=N_FFT,
+            hop_length=HOP_LENGTH
+        )
+        self.amplitude_to_db = T.AmplitudeToDB()
     
     def train_epoch(self, train_loader):
         """Train for one epoch"""
@@ -263,51 +273,87 @@ class CoughClassifierTrainer:
     def predict(self, audio_path):
         """Predict the disease class for a given audio file"""
         import time as timing_module
+        import subprocess
+        from pathlib import Path as PathlibPath
+        
         t0 = timing_module.time()
+        
+        # Verify file exists
+        audio_file = PathlibPath(audio_path)
+        if not audio_file.exists():
+            raise FileNotFoundError(f"Audio file not found: {audio_path}")
+        
+        print(f"  Loading audio from: {audio_file.absolute()}")
+        
+        # Convert WebM to WAV if needed
+        if audio_file.suffix.lower() == '.webm':
+            print(f"  Converting WebM to WAV...")
+            wav_path = audio_file.with_suffix('.wav')
+            try:
+                # Use ffmpeg to convert webm (opus codec) to wav
+                result = subprocess.run(
+                    ['ffmpeg', '-i', str(audio_file), '-acodec', 'pcm_s16le', '-ar', '16000', str(wav_path), '-y'],
+                    capture_output=True,
+                    timeout=10,
+                    text=True
+                )
+                if result.returncode != 0:
+                    raise RuntimeError(f"ffmpeg failed: {result.stderr}")
+                print(f"  Converted to: {wav_path}")
+                audio_path = str(wav_path)
+                audio_file = wav_path
+            except FileNotFoundError:
+                print(f"  ffmpeg not found. Install with: brew install ffmpeg")
+                raise RuntimeError("WebM conversion requires ffmpeg. Install with: brew install ffmpeg")
+            except Exception as e:
+                raise RuntimeError(f"WebM conversion failed: {e}")
         
         self.model.eval()
         
-        # Load audio with librosa (fastest method for webm)
+        # Load audio - prioritize torchaudio for speed
         try:
-            # Load mono at 16kHz for speed
-            audio_data, sr = librosa.load(audio_path, sr=SAMPLE_RATE, mono=True)
-            print(f"  Loaded in {timing_module.time()-t0:.2f}s")
-            # Convert to torch tensor
-            waveform = torch.FloatTensor(audio_data).unsqueeze(0)
-        except Exception as e:
-            print(f"  Error loading with librosa: {e}")
+            print(f"  Loading audio with torchaudio...")
             waveform, sr = torchaudio.load(audio_path)
+            print(f"  Loaded in {timing_module.time()-t0:.2f}s (sr={sr}Hz)")
+        except Exception as e:
+            print(f"  Torchaudio failed, trying librosa: {e}")
+            try:
+                audio_data, sr = librosa.load(audio_path, sr=None, mono=False)
+                waveform = torch.FloatTensor(audio_data).unsqueeze(0) if audio_data.ndim == 1 else torch.FloatTensor(audio_data)
+                print(f"  Loaded in {timing_module.time()-t0:.2f}s (sr={sr}Hz)")
+            except Exception as e2:
+                raise RuntimeError(f"Failed to load audio: {e2}")
         
         t1 = timing_module.time()
         
+        # Convert to mono if stereo
+        if waveform.shape[0] > 1:
+            waveform = waveform.mean(dim=0, keepdim=True)
+        
         # Resample if necessary
         if sr != SAMPLE_RATE:
-            resampler = T.Resample(sr, SAMPLE_RATE)
+            print(f"  Resampling from {sr}Hz to {SAMPLE_RATE}Hz...")
+            resampler = T.Resample(sr, SAMPLE_RATE).to(self.device)
+            waveform = waveform.to(self.device)
             waveform = resampler(waveform)
+        else:
+            waveform = waveform.to(self.device)
         
-        # Normalize duration
+        # Normalize duration to 3 seconds
         target_length = SAMPLE_RATE * 3
         if waveform.shape[1] < target_length:
             waveform = torch.nn.functional.pad(waveform, (0, target_length - waveform.shape[1]))
         else:
             waveform = waveform[:, :target_length]
         
-        print(f"  Audio processing in {timing_module.time()-t1:.2f}s")
+        print(f"  Audio prep in {timing_module.time()-t1:.2f}s")
         t2 = timing_module.time()
         
-        # Convert to mel-spectrogram
-        mel_transform = T.MelSpectrogram(
-            sample_rate=SAMPLE_RATE,
-            n_mels=N_MELS,
-            n_fft=N_FFT,
-            hop_length=HOP_LENGTH
-        )
-        amplitude_to_db = T.AmplitudeToDB()
-        
-        mel_spec = mel_transform(waveform)
-        mel_spec = amplitude_to_db(mel_spec)
+        # Convert to mel-spectrogram using cached transforms
+        mel_spec = self.mel_transform(waveform)
+        mel_spec = self.amplitude_to_db(mel_spec)
         mel_spec = (mel_spec - mel_spec.mean()) / (mel_spec.std() + 1e-5)
-        mel_spec = mel_spec.unsqueeze(0).to(self.device)
+        mel_spec = mel_spec.unsqueeze(0)  # Add batch dimension
         
         print(f"  MelSpec in {timing_module.time()-t2:.2f}s")
         t3 = timing_module.time()
@@ -318,7 +364,7 @@ class CoughClassifierTrainer:
             predicted_class = torch.argmax(output, dim=1).item()
             confidence = probabilities[0, predicted_class].item()
         
-        print(f"  Model inference in {timing_module.time()-t3:.2f}s")
+        print(f"  Inference in {timing_module.time()-t3:.2f}s")
         
         return DISEASE_CLASSES[predicted_class], confidence, {
             DISEASE_CLASSES[i]: probabilities[0, i].item() for i in range(NUM_CLASSES)

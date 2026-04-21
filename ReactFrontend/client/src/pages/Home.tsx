@@ -677,7 +677,7 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
   const startRecording = async () => {
     if (isRecording) return;
     try {
-      setStatus("Microphone armed. Capturing a 3-second cough sample...");
+      setStatus("Recording...");
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       setDownloadUrl("");
       setPredictions(null);
@@ -749,8 +749,12 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
               console.error("Invalid response format:", data);
             }
           } else {
-            setStatus(`Error: ${data.detail || data.error || response.statusText}`);
+            const errorMsg = data.detail || data.error || response.statusText;
+            setStatus(`Error: ${errorMsg}`);
             console.error("API error response:", data);
+            if (data.traceback) {
+              console.error("Backend traceback:\n", data.traceback);
+            }
           }
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -778,8 +782,18 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
       tick();
 
       timeoutRef.current = window.setTimeout(() => stopRecording(), 3000);
-    } catch {
-      setStatus("Microphone access was blocked. Allow access to test the capture pipeline.");
+    } catch (error: any) {
+      let errorMsg = "Microphone access was blocked. Allow access to test the capture pipeline.";
+      
+      if (error.name === "NotAllowedError") {
+        errorMsg = "Microphone permission denied. Check: 1) Browser site permissions 2) macOS System Settings > Privacy & Security > Microphone";
+      } else if (error.name === "NotFoundError") {
+        errorMsg = "No microphone found on this device.";
+      } else if (error.name === "NotReadableError") {
+        errorMsg = "Microphone is in use by another app. Close other audio apps and retry.";
+      }
+      
+      setStatus(errorMsg);
       cleanupAudio();
       setIsRecording(false);
     }
@@ -916,12 +930,12 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                     );
                   })
               : [
-                  { label: "COVID-19", value: 0.68, color: "#FF4D4D" },
-                  { label: "Tuberculosis", value: 0.62, color: "#FF8A3D" },
-                  { label: "Bronchitis", value: 0.51, color: "#FFB82F" },
-                  { label: "Asthma", value: 0.39, color: "#FDE047" },
-                  { label: "Cold Cough", value: 0.28, color: "#87CEEB" },
-                  { label: "Healthy", value: 0.24, color: "#00FF94" },
+                  { label: "Healthy", value: 0.21, color: "#00FF94" },
+                  { label: "Cold Cough", value: 0.16, color: "#87CEEB" },
+                  { label: "COVID-19", value: 0.15, color: "#FF4D4D" },
+                  { label: "Tuberculosis", value: 0.16, color: "#FF8A3D" },
+                  { label: "Bronchitis", value: 0.16, color: "#FFB82F" },
+                  { label: "Asthma", value: 0.16, color: "#FDE047" },
                 ].map((item) => (
                   <div key={item.label} className="space-y-2">
                     <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
@@ -1167,6 +1181,8 @@ export default function Home() {
               <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/4 px-3 py-2 text-xs text-slate-200/75">
                 <Globe2 className="h-4 w-4 text-cyan-300" />
                 <select
+                  name="language"
+                  id="language-selector"
                   aria-label="Language selector"
                   value={language}
                   onChange={(event) => setLanguage(event.target.value)}
@@ -1286,7 +1302,7 @@ export default function Home() {
                     {[
                       {
                         label: "Input",
-                        value: "3 second audio capture",
+                        value: "audio capture",
                         detail: "On-device microphone intake",
                       },
                       {
@@ -1386,7 +1402,7 @@ export default function Home() {
             <div className="max-w-3xl" data-reveal>
               <div className="eyebrow">How it works</div>
               <h2 className="mt-6 text-[clamp(2.6rem,5vw,4.8rem)] font-bold leading-[0.96] text-white">
-                From Cough to Diagnosis in 3 Seconds
+                From Cough to Diagnosis
               </h2>
               <p className="mt-6 text-lg leading-8 text-slate-200/72">
                 The product story is simple: capture a cough, translate it into features, run inference, and return interpretable probabilities. The interface makes each stage auditable so the pipeline looks engineered rather than magical.
