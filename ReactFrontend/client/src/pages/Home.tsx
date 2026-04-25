@@ -532,6 +532,12 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
   const [downloadUrl, setDownloadUrl] = useState("");
   const [predictions, setPredictions] = useState<Record<string, number> | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isMock, setIsMock] = useState(false);
+  const [topPrediction, setTopPrediction] = useState<string | null>(null);
+
+  // Backend URL — configurable via VITE_API_URL environment variable
+  // Default: http://127.0.0.1:8000 (local FastAPI server)
+  const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://127.0.0.1:8000";
 
   useEffect(() => {
     const waveformCanvas = waveformRef.current;
@@ -669,7 +675,7 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
     if (!isRecording) return;
     setIsRecording(false);
     setRemaining(3);
-    setStatus("Recording saved. Plug into your ML model.");
+      setStatus("Recording complete. Sending to classifier...");
     mediaRecorderRef.current?.stop();
     cleanupAudio();
   };
@@ -677,7 +683,9 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
   const startRecording = async () => {
     if (isRecording) return;
     try {
-      setStatus("Recording...");
+      setStatus("Recording… hold for 3 seconds.");
+      setIsMock(false);
+      setTopPrediction(null);
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       setDownloadUrl("");
       setPredictions(null);
@@ -707,7 +715,7 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
         
         // Send to FastAPI backend
         setIsProcessing(true);
-        setStatus("Converting audio format...");
+        setStatus("Analyzing audio...");
         const startTime = Date.now();
         console.log("Recording blob size:", blob.size, "type:", blob.type);
         
@@ -715,13 +723,13 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
           const formData = new FormData();
           formData.append("audio", blob, "recording.webm");
           
-          const apiUrl = "http://127.0.0.1:8000/predict";
+          const apiUrl = `${API_BASE}/predict`;
           console.log("Sending to", apiUrl);
           
           // Update status every second while waiting
           const statusInterval = setInterval(() => {
             const elapsedSeconds = Math.round((Date.now() - startTime) / 1000);
-            setStatus(`Processing audio... (${elapsedSeconds}s)`);
+            setStatus(`Analyzing audio... (${elapsedSeconds}s)`);
           }, 1000);
           
           const response = await fetch(apiUrl, {
@@ -742,8 +750,10 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
               const predDict = data.prediction.all_probabilities;
               console.log("Probabilities:", predDict);
               setPredictions(predDict);
+              setTopPrediction(data.prediction.predicted_disease);
+              setIsMock(data.prediction.mock === true);
               const processingTime = data.processing_time ? data.processing_time.toFixed(2) : elapsedSeconds;
-              setStatus(`✓ Classification: ${data.prediction.predicted_disease} (${(data.prediction.confidence * 100).toFixed(1)}% confidence) - completed in ${processingTime}s`);
+              setStatus(`✓ ${data.prediction.predicted_disease} — ${(data.prediction.confidence * 100).toFixed(1)}% confidence (${processingTime}s)`);
             } else {
               setStatus("Received response but no predictions found");
               console.error("Invalid response format:", data);
@@ -752,13 +762,10 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
             const errorMsg = data.detail || data.error || response.statusText;
             setStatus(`Error: ${errorMsg}`);
             console.error("API error response:", data);
-            if (data.traceback) {
-              console.error("Backend traceback:\n", data.traceback);
-            }
           }
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-          setStatus(`Connection error: ${errorMsg}. Make sure backend is running on http://127.0.0.1:8000`);
+          const errorMsg = error instanceof Error ? error.message : "Unknown error";
+          setStatus(`Connection error: ${errorMsg}. Make sure the backend is running on ${API_BASE}`);
           console.error("Full API error:", error);
         } finally {
           setIsProcessing(false);
@@ -862,14 +869,31 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                 <p className="font-mono text-sm text-[#00FF94]">{status}</p>
 
                 {downloadUrl ? (
-                  <a
-                    href={downloadUrl}
-                    download="coughnet-recording.webm"
-                    className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-white/4 px-4 py-2 font-[Space_Grotesk] text-sm font-bold text-cyan-50"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Recording
-                  </a>
+                  <div className="flex flex-col items-center gap-2">
+                    <a
+                      href={downloadUrl}
+                      download="coughnet-recording.webm"
+                      className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-white/4 px-4 py-2 font-[Space_Grotesk] text-sm font-bold text-cyan-50"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download Recording
+                    </a>
+                    {predictions && (
+                      <button
+                        onClick={() => {
+                          URL.revokeObjectURL(downloadUrl);
+                          setDownloadUrl("");
+                          setPredictions(null);
+                          setTopPrediction(null);
+                          setIsMock(false);
+                          setStatus("Awaiting microphone input.");
+                        }}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/4 px-4 py-2 font-[Space_Grotesk] text-sm font-bold text-slate-200"
+                      >
+                        &#8635; Re-record
+                      </button>
+                    )}
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -907,6 +931,7 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
               ? [
                   { label: "COVID-19", color: "#FF4D4D" },
                   { label: "Tuberculosis", color: "#FF8A3D" },
+                  { label: "Pneumonia", color: "#C084FC" },
                   { label: "Bronchitis", color: "#FFB82F" },
                   { label: "Asthma", color: "#FDE047" },
                   { label: "Cold Cough", color: "#87CEEB" },
@@ -914,10 +939,13 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                 ]
                   .map((item) => {
                     const value = predictions[item.label] ?? 0;
+                    const isTop = item.label === topPrediction;
                     return (
                       <div key={item.label} className="space-y-2">
                         <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
-                          <span>{item.label}</span>
+                          <span className={isTop ? "font-bold text-white" : ""}>
+                            {item.label}{isTop ? " ★" : ""}
+                          </span>
                           <span>{Math.round(value * 100)}%</span>
                         </div>
                         <div className="progress-track h-3">
@@ -951,21 +979,44 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                   </div>
                 ))}
 
-            <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-              <div className="flex items-start gap-3">
-                <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-red-400 shadow-[0_0_18px_rgba(255,77,77,0.9)]" />
-                <div>
-                  <p className="font-[Space_Grotesk] font-bold">Consult a healthcare provider</p>
-                  <p className="mt-1 text-red-100/80">
-                    Placeholder escalation logic is active because COVID-19 or Tuberculosis probability exceeds the 60% threshold.
-                  </p>
+            {/* Dynamic escalation banner — shown when a high-risk class exceeds 50% confidence */}
+            {predictions && (() => {
+              const highRisk = ["COVID-19", "Tuberculosis", "Pneumonia"];
+              const riskClass = highRisk.find((cls) => (predictions[cls] ?? 0) > 0.50);
+              return riskClass ? (
+                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-red-400 shadow-[0_0_18px_rgba(255,77,77,0.9)]" />
+                    <div>
+                      <p className="font-[Space_Grotesk] font-bold">Consult a healthcare provider</p>
+                      <p className="mt-1 text-red-100/80">
+                        {riskClass} probability exceeds the 50% escalation threshold. This is not a medical diagnosis.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              ) : (
+                <div className="rounded-2xl border border-green-400/20 bg-green-500/10 px-4 py-3 text-sm text-green-100">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-green-400" />
+                    <p>No high-risk indicators detected above the 50% threshold.</p>
+                  </div>
+                </div>
+              );
+            })()}
 
-            <div className="rounded-2xl border border-cyan-300/10 bg-cyan-400/[0.04] p-4 text-sm text-slate-200/75">
-              Judges can see the complete handoff: microphone intake, signal visualization, local asset download, and a clearly marked classifier insertion point.
-            </div>
+            {/* Mock mode disclaimer */}
+            {isMock && predictions && (
+              <div className="rounded-2xl border border-yellow-400/20 bg-yellow-500/8 px-4 py-3 text-sm text-yellow-100/80">
+                ⚠️ Demo mode — results are simulated. Load <code className="font-mono text-xs">cough_classifier.pt</code> for real inference.
+              </div>
+            )}
+
+            {!predictions && (
+              <div className="rounded-2xl border border-cyan-300/10 bg-cyan-400/[0.04] p-4 text-sm text-slate-200/75">
+                Hold the record button, cough for 3 seconds, then release to see the probability distribution.
+              </div>
+            )}
           </div>
         </div>
       </div>

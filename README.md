@@ -1,203 +1,148 @@
-# Cough-Based Health Issue Classifier
+# CoughNet — Respiratory Health Classification
 
-A PyTorch-based deep learning model that classifies cough audio recordings to identify potential health issues including COVID-19, cold cough, asthma, bronchitis, whooping cough, or healthy status.
+CoughNet is a full-stack web application designed to analyze human cough recordings and classify potential respiratory conditions using machine learning. Built for the UN Hackathon, this project provides a seamless, browser-based intake module that captures audio, visualizes the signal in real-time, and processes it through a FastAPI backend.
 
-## Features
+## 🎯 Problem Statement
 
-- **CNN Architecture**: Convolutional Neural Network optimized for audio spectrogram analysis
-- **Mel-Spectrogram Processing**: Converts raw audio to mel-spectrograms for feature extraction
-- **Multi-Class Classification**: Classifies coughs into 6 categories:
-  - Healthy
-  - Cold Cough
-  - COVID-19
-  - Asthma
-  - Bronchitis
-  - Whooping Cough
-- **Data Augmentation & Normalization**: Automatic audio preprocessing and normalization
-- **Early Stopping**: Prevents overfitting with patience-based early stopping
-- **GPU Support**: Automatically uses GPU if available
+Respiratory diseases like Tuberculosis, COVID-19, and Pneumonia affect millions globally, often going undetected in early stages due to lack of accessible screening tools. Traditional diagnostic pathways require clinical visits and specialized equipment, creating a massive surveillance gap in low-resource settings.
 
-## Installation
+## 💡 Solution
 
-1. Clone the repository:
-```bash
-cd UNHackathon
-```
+CoughNet bridges this gap by turning any commodity smartphone or laptop into a preliminary screening tool. By capturing a 3-second cough sample directly in the browser and analyzing its acoustic biomarkers (MFCCs and Mel-spectrograms), the system provides an immediate probability distribution across six respiratory conditions, enabling earlier triage and intervention.
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+## ✨ Features
 
-## Project Structure
+- **Browser-Native Audio Capture**: Record cough samples directly from the web UI using the `MediaRecorder` API without requiring native app installation.
+- **Real-Time Signal Visualization**: Live time-domain waveform and frequency-domain spectrogram rendering using the Web Audio API (`AnalyserNode`).
+- **Mock AI Fallback Mode**: Fully functional demo mode that simulates realistic probability distributions when the trained PyTorch model is not present.
+- **Dynamic Escalation Logic**: Automatically flags high-risk predictions (e.g., COVID-19, Tuberculosis, Pneumonia > 50% confidence) with clear clinical escalation warnings.
+- **Local Asset Download**: Allows users to download their recorded `.webm` files for local inspection or dataset contribution.
+- **Re-record Capability**: Seamlessly discard previous recordings and try again with a single click.
 
-```
+## 🧱 Tech Stack
+
+### Frontend
+- **Framework**: React 18 + TypeScript + Vite
+- **Styling**: Tailwind CSS + custom animations
+- **Audio Processing**: Web Audio API, `MediaRecorder`
+- **Visualization**: HTML5 Canvas, Three.js (Hero scene), GSAP (Scroll animations)
+- **Icons**: Lucide React
+
+### Backend
+- **Framework**: FastAPI (Python)
+- **Server**: Uvicorn
+- **Machine Learning**: PyTorch, Torchaudio
+- **Audio Processing**: Librosa, Soundfile
+- **File Handling**: `python-multipart` for robust audio uploads
+
+---
+
+## 📂 Project Structure
+
+```text
 UNHackathon/
-├── main.py                      # Main model implementation
-├── requirements.txt             # Python dependencies
-├── README.md                    # This file
-└── audio_data/                  # Training data directory (to be created)
-    ├── Healthy/
-    │   └── *.wav (or *.mp3)
-    ├── Cold Cough/
-    │   └── *.wav (or *.mp3)
-    ├── COVID-19/
-    │   └── *.wav (or *.mp3)
-    ├── Asthma/
-    │   └── *.wav (or *.mp3)
-    ├── Bronchitis/
-    │   └── *.wav (or *.mp3)
-    └── Whooping Cough/
-        └── *.wav (or *.mp3)
+├── ReactFrontend/               # React + Vite Frontend
+│   ├── client/src/
+│   │   ├── pages/Home.tsx       # Main UI, recording logic, and visualizations
+│   │   ├── index.css            # Tailwind directives and custom styles
+│   │   └── main.tsx             # React entry point
+│   ├── package.json             # Frontend dependencies
+│   └── .env.example             # Environment variables template
+│
+├── backend/                     # FastAPI Backend
+│   ├── api.py                   # REST API endpoints and mock AI logic
+│   ├── main.py                  # PyTorch CNN model architecture
+│   ├── inference.py             # Model loading and prediction wrapper
+│   ├── requirements.txt         # Python dependencies
+│   └── uploads/                 # Temporary storage for audio processing
+│
+└── README.md                    # Project documentation
 ```
 
-## Model Architecture
+---
 
-### CoughClassifier
-- **Input**: Mel-spectrogram (1 channel, 64 mel-bins)
-- **Convolutional Layers**: 4 layers with batch normalization and max pooling
-- **Fully Connected Layers**: 3 layers with dropout regularization
-- **Output**: 6-class probability distribution
+## 🚀 Setup Instructions
 
-### Key Components
+The project is designed to be fully runnable locally with minimal setup.
 
-1. **CoughAudioDataset**: Custom PyTorch Dataset class
-   - Loads audio files from organized directory structure
-   - Converts audio to mel-spectrograms
-   - Normalizes duration to 3 seconds
-   - Applies normalization
+### 1. Start the Backend (FastAPI)
 
-2. **CoughClassifier**: Neural network model
-   - 4 convolutional blocks (32 → 64 → 128 → 256 filters)
-   - Batch normalization for stable training
-   - Dropout layers to prevent overfitting
-   - Adaptive average pooling for variable input sizes
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Install the required Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Start the FastAPI server:
+   ```bash
+   python api.py
+   ```
+   *The server will start on `http://localhost:8000`. If `cough_classifier.pt` is not found, it will automatically fall back to the Mock AI mode so the app remains fully functional.*
 
-3. **CoughClassifierTrainer**: Training and inference wrapper
-   - Handles training loop with validation
-   - Implements early stopping
-   - Learning rate scheduling
-   - Model persistence (save/load)
-   - Single prediction inference
+### 2. Start the Frontend (React/Vite)
 
-## Usage
+1. Open a new terminal and navigate to the frontend directory:
+   ```bash
+   cd ReactFrontend
+   ```
+2. Install Node.js dependencies:
+   ```bash
+   npm install
+   # or: pnpm install / yarn install
+   ```
+3. Create your environment file:
+   ```bash
+   cp .env.example .env
+   ```
+   *(Ensure `VITE_API_URL=http://127.0.0.1:8000` is set in the `.env` file)*
+4. Start the development server:
+   ```bash
+   npm run dev
+   # or: pnpm dev / yarn dev
+   ```
+5. Open your browser to the URL provided by Vite (usually `http://localhost:5173`).
 
-### Preparing Training Data
+---
 
-Organize your cough audio files in the following structure:
-```
-audio_data/
-├── Healthy/
-│   ├── healthy_cough_001.wav
-│   ├── healthy_cough_002.wav
-│   └── ...
-├── Cold Cough/
-│   ├── cold_cough_001.wav
-│   └── ...
-├── COVID-19/
-├── Asthma/
-├── Bronchitis/
-└── Whooping Cough/
-```
+## 🎤 Demo Instructions
 
-Supported formats: `.wav`, `.mp3`
+1. Open the frontend application in your browser.
+2. Scroll down to the **"Hear It for Yourself"** section.
+3. Click and hold the **"Hold to Record"** button.
+4. Allow microphone permissions if prompted by your browser.
+5. Cough into your microphone for 3 seconds while holding the button.
+6. Release the button. The audio will be sent to the backend.
+7. Watch the probability distribution update with the classification results.
+8. (Optional) Click **"Download Recording"** to save the audio file, or **"↺ Re-record"** to try again.
 
-### Training the Model
+---
 
-```python
-from main import CoughClassifier, CoughClassifierTrainer, CoughAudioDataset
-import torch
-from torch.utils.data import DataLoader, random_split
+## 🧪 AI Processing Logic
 
-# Setup
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CoughClassifier(num_classes=6)
-trainer = CoughClassifierTrainer(model, device=device, learning_rate=0.001)
+The backend is architected to support both real inference and simulated demos:
 
-# Load dataset
-dataset = CoughAudioDataset("audio_data")
-train_size = int(0.8 * len(dataset))
-val_size = len(dataset) - train_size
-train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+1. **Real Inference**: If a trained PyTorch model (`cough_classifier.pt`) is placed in the `backend/` directory, `api.py` loads it via `inference.py`. It extracts a 64-bin Mel-spectrogram from the uploaded audio and runs it through a 4-layer Convolutional Neural Network to generate predictions.
+2. **Mock AI Fallback**: If the model file is missing, the API gracefully falls back to a rule-based mock classifier. This ensures the frontend UI, loading states, and error handling can be fully evaluated by hackathon judges without requiring a heavy model download.
 
-train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)
+---
 
-# Train
-trainer.train(train_loader, val_loader, epochs=50)
+## 🌐 Deployment (Optional)
 
-# Save model
-trainer.save_model("cough_classifier.pt")
-```
+### Frontend (Vercel / Netlify)
+1. Connect your GitHub repository to Vercel.
+2. Set the Framework Preset to **Vite**.
+3. Add the Environment Variable: `VITE_API_URL=https://your-backend-url.onrender.com`
+4. Deploy.
 
-### Making Predictions
+### Backend (Render / Railway)
+1. Create a new Web Service on Render connected to your repository.
+2. Set the Root Directory to `backend`.
+3. Set the Build Command to `pip install -r requirements.txt`.
+4. Set the Start Command to `uvicorn api:app --host 0.0.0.0 --port $PORT`.
+5. Deploy.
 
-```python
-from main import CoughClassifierTrainer, CoughClassifier
-import torch
+---
 
-# Load model
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CoughClassifier(num_classes=6)
-trainer = CoughClassifierTrainer(model, device=device)
-trainer.load_model("cough_classifier.pt")
-
-# Make prediction
-disease, confidence, all_probabilities = trainer.predict("path/to/audio.wav")
-
-print(f"Predicted Disease: {disease}")
-print(f"Confidence: {confidence:.2%}")
-print(f"All Probabilities: {all_probabilities}")
-```
-
-## Training Parameters
-
-- **Batch Size**: 16
-- **Learning Rate**: 0.001 (with ReduceLROnPlateau scheduler)
-- **Optimizer**: Adam
-- **Loss Function**: CrossEntropyLoss
-- **Epochs**: 50 (with early stopping at patience=10)
-- **Dropout**: 0.5 (first FC layer), 0.3 (second FC layer)
-
-## Audio Processing
-
-- **Sample Rate**: 16,000 Hz
-- **Duration**: 3 seconds (normalized)
-- **Mel-Spectrogram**:
-  - Bins: 64
-  - FFT Size: 400
-  - Hop Length: 160
-- **Normalization**: Z-score normalization applied to each spectrogram
-
-## Model Performance Considerations
-
-- **Minimum Training Samples**: 20-30 samples per class recommended
-- **Optimal Training Samples**: 100+ samples per class
-- **GPU Memory**: ~2GB sufficient for batch size 16
-- **Training Time**: ~5-10 minutes per epoch (varies by dataset size)
-
-## Troubleshooting
-
-1. **Out of Memory**: Reduce batch size to 8 or lower
-2. **Audio Loading Errors**: Ensure audio files are valid WAV or MP3 format
-3. **Poor Performance**: Ensure balanced dataset across classes
-4. **Slow Training**: GPU may not be available; install CUDA/cuDNN
-
-## Future Improvements
-
-- Mixup data augmentation
-- Ensemble methods
-- Transfer learning with pretrained models
-- Time-frequency augmentation
-- Class weighting for imbalanced datasets
-- Cross-validation for robust evaluation
-
-## License
-
-This project is part of the UN Hackathon initiative.
-
-## References
-
-- PyTorch Documentation: https://pytorch.org/
-- Torchaudio: https://pytorch.org/audio/
-- Mel-Spectrogram Processing: https://en.wikipedia.org/wiki/Mel-scale
+*Built for the UN Hackathon. Empowering global health through accessible acoustic screening.*

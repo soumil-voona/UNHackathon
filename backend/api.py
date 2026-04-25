@@ -1,308 +1,437 @@
 """
-FastAPI for the Cough Classifier model.
-Provides REST endpoints for audio classification.
+CoughNet FastAPI Backend
+========================
+REST API for cough-based health issue classification.
 
-Installation: pip install fastapi uvicorn python-dotenv python-multipart
+Endpoints:
+    POST /predict          - Upload audio file for disease classification
+    POST /predict-url      - Classify audio from a URL
+    POST /top-predictions  - Get top-k predictions for an audio file
+    GET  /health           - Health check and model status
+    GET  /classes          - Available disease classes
+    GET  /                 - API documentation
+
+Installation:
+    pip install -r requirements.txt
 
 Usage:
     python api.py
-    
-Then access:
-    POST http://localhost:8000/predict - Upload audio file for classification
-    GET http://localhost:8000/health - Check API health
-    GET http://localhost:8000/classes - Get available disease classes
+    # Then open: http://localhost:8000/docs
+
+The server runs on port 8000 by default and accepts requests from any origin (CORS enabled).
+If the trained model file (cough_classifier.pt) is not present, the server falls back to a
+rule-based mock classifier so the app remains fully runnable for demos.
 """
 
+import os
+import time
+import random
+import traceback
+import logging
+from pathlib import Path
+from urllib.request import urlretrieve
+
+import torch
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from pathlib import Path
-import torch
-from inference import CoughInference
-import os
-import shutil
-from urllib.request import urlretrieve
-import time
 
-app = FastAPI()
+# ---------------------------------------------------------------------------
+# Logging setup
+# ---------------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)s %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("coughnet")
 
-# Configure CORS
+# ---------------------------------------------------------------------------
+# App & CORS
+# ---------------------------------------------------------------------------
+app = FastAPI(
+    title="CoughNet API",
+    description="Cough-based respiratory health classification API",
+    version="1.0.0",
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],        # Allow all origins for local development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ---------------------------------------------------------------------------
 # Configuration
-ALLOWED_EXTENSIONS = {'wav', 'mp3', 'm4a', 'flac', 'webm', 'ogg'}
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-UPLOAD_FOLDER = Path(__file__).parent / 'uploads'
-
-# Create upload folder if it doesn't exist
+# ---------------------------------------------------------------------------
+ALLOWED_EXTENSIONS = {"wav", "mp3", "m4a", "flac", "webm", "ogg"}
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+UPLOAD_FOLDER = Path(__file__).parent / "uploads"
 UPLOAD_FOLDER.mkdir(exist_ok=True)
-print(f"[INIT] Upload folder: {UPLOAD_FOLDER.absolute()}")
 
-# Initialize inference engine
+log.info(f"Upload folder: {UPLOAD_FOLDER.absolute()}")
+
+# Disease classes (mirrors main.py DISEASE_CLASSES)
+DISEASE_CLASSES = {
+    0: "Healthy",
+    1: "Cold Cough",
+    2: "COVID-19",
+    3: "Asthma",
+    4: "Bronchitis",
+    5: "Tuberculosis",
+    6: "Pneumonia",
+}
+
+# ---------------------------------------------------------------------------
+# Model loading — graceful fallback to mock classifier
+# ---------------------------------------------------------------------------
+model_loaded = False
+inference = None
+
 try:
+    from inference import CoughInference
     inference = CoughInference(model_path="cough_classifier.pt")
     device = inference.trainer.device
-    print(f"\n✓ Model loaded successfully on device: {device}")
-    print(f"  GPU available: {torch.cuda.is_available()}")
+    log.info(f"Trained model loaded on device: {device}")
+    log.info(f"  GPU available: {torch.cuda.is_available()}")
     model_loaded = True
 except Exception as e:
-    print(f"Warning: Could not load model: {e}")
-    inference = None
-    model_loaded = False
+    log.warning(
+        f"Could not load trained model ({e}). "
+        "Falling back to mock (rule-based) classifier. "
+        "Place cough_classifier.pt in the backend/ directory to use the real model."
+    )
 
 
-class PredictionResponse(BaseModel):
-    success: bool
-    prediction: dict
+# ---------------------------------------------------------------------------
+# Mock / simulated AI classifier
+# ---------------------------------------------------------------------------
+
+def mock_classify(audio_path: str) -> dict:
+    """
+    Rule-based mock classifier used when the trained model is not available.
+
+    Simulates realistic probability distributions so the frontend demo works
+    end-to-end without requiring a trained model file.  Replace this function
+    with a real model call when cough_classifier.pt is available.
+
+    The distribution is seeded from the file size so repeated calls with the
+    same recording produce consistent results within a session.
+    """
+    try:
+        file_size = Path(audio_path).stat().st_size
+    except OSError:
+        file_size = 42
+
+    rng = random.Random(file_size % 1000)
+
+    # Pick a dominant class and assign it a high probability
+    dominant_idx = rng.randint(0, len(DISEASE_CLASSES) - 1)
+    dominant_prob = rng.uniform(0.45, 0.80)
+
+    # Distribute the remaining probability mass among the other classes
+    remaining = 1.0 - dominant_prob
+    others = [i for i in range(len(DISEASE_CLASSES)) if i != dominant_idx]
+    splits = sorted([rng.random() for _ in range(len(others) - 1)])
+    splits = [0.0] + splits + [1.0]
+    other_probs = [remaining * (splits[i + 1] - splits[i]) for i in range(len(others))]
+
+    all_probs: dict = {}
+    for i, name in DISEASE_CLASSES.items():
+        if i == dominant_idx:
+            all_probs[name] = round(dominant_prob, 4)
+        else:
+            idx_in_others = others.index(i)
+            all_probs[name] = round(other_probs[idx_in_others], 4)
+
+    predicted_disease = DISEASE_CLASSES[dominant_idx]
+    confidence = dominant_prob
+
+    log.info(f"[MOCK] Predicted: {predicted_disease} ({confidence:.1%})")
+
+    return {
+        "audio_file": str(audio_path),
+        "predicted_disease": predicted_disease,
+        "confidence": confidence,
+        "all_probabilities": all_probs,
+        "mock": True,
+    }
 
 
-class TopPredictionsResponse(BaseModel):
-    success: bool
-    top_predictions: list
+def classify_audio(audio_path: str) -> dict:
+    """
+    Dispatch to the real model or the mock classifier.
 
+    This is the single integration point: swap out mock_classify for a
+    different model (TensorFlow.js, OpenAI Whisper, external API, etc.)
+    by replacing the else branch below.
+    """
+    if model_loaded and inference is not None:
+        return inference.classify_audio(audio_path)
+    else:
+        return mock_classify(audio_path)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def allowed_file(filename: str) -> bool:
+    """Return True if the filename has an allowed audio extension."""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+# ---------------------------------------------------------------------------
+# Pydantic models
+# ---------------------------------------------------------------------------
 
 class URLPredictionRequest(BaseModel):
     url: str
 
 
-def allowed_file(filename):
-    """Check if file has allowed extension."""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+@app.get("/")
+def index():
+    """API documentation overview."""
+    return JSONResponse({
+        "name": "CoughNet API",
+        "version": "1.0.0",
+        "model_loaded": model_loaded,
+        "endpoints": {
+            "GET  /health": "Health check and model status",
+            "GET  /classes": "Available disease classes",
+            "POST /predict": "Classify cough from uploaded audio file",
+            "POST /predict-url": "Classify cough from audio URL",
+            "POST /top-predictions": "Get top-k predictions for audio file",
+        },
+    })
 
 
-@app.get('/health')
+@app.get("/health")
 def health_check():
-    """Health check endpoint."""
+    """Health check — returns model status and device info."""
     return JSONResponse({
         "status": "healthy",
         "model_loaded": model_loaded,
-        "device": str(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        "mock_mode": not model_loaded,
+        "device": str(torch.device("cuda" if torch.cuda.is_available() else "cpu")),
     })
 
 
-@app.get('/classes')
+@app.get("/classes")
 def get_classes():
-    """Get available disease classes."""
-    from main import DISEASE_CLASSES
+    """Return the list of disease classes the model can predict."""
     return JSONResponse({
         "classes": DISEASE_CLASSES,
-        "count": len(DISEASE_CLASSES)
+        "count": len(DISEASE_CLASSES),
     })
 
 
-@app.post('/predict')
+@app.post("/predict")
 async def predict(audio: UploadFile = File(...)):
-    """Predict disease from uploaded audio file."""
+    """
+    Classify a cough recording.
+
+    Accepts any common audio format (wav, mp3, webm, ogg, m4a, flac).
+    Returns a JSON object with the predicted disease, confidence score,
+    and the full probability distribution across all classes.
+
+    Example response:
+        {
+            "success": true,
+            "prediction": {
+                "predicted_disease": "Healthy",
+                "confidence": 0.72,
+                "all_probabilities": { "Healthy": 0.72, "Cold Cough": 0.08, ... }
+            },
+            "processing_time": 0.43
+        }
+    """
     start_time = time.time()
-    
-    if not model_loaded:
-        raise HTTPException(
-            status_code=500,
-            detail="Model not loaded. Please ensure cough_classifier.pt exists."
-        )
-    
-    print(f"\n[PREDICT] Received: {audio.filename} ({audio.content_type})")
-    
-    if not allowed_file(audio.filename):
+    filepath = None
+
+    log.info(f"[PREDICT] Received: {audio.filename!r} ({audio.content_type})")
+
+    # Validate file extension
+    if not allowed_file(audio.filename or ""):
         raise HTTPException(
             status_code=400,
-            detail=f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}. Received: {audio.filename}"
+            detail=(
+                f"File type not allowed. "
+                f"Accepted types: {', '.join(sorted(ALLOWED_EXTENSIONS))}. "
+                f"Got: {audio.filename!r}"
+            ),
         )
-    
-    filepath = None
+
     try:
-        # Save uploaded file with absolute path
-        filepath = UPLOAD_FOLDER / audio.filename
-        print(f"[PREDICT] Saving to: {filepath.absolute()}")
-        
+        # ----------------------------------------------------------------
+        # 1. Save the uploaded file to disk
+        # ----------------------------------------------------------------
+        safe_name = Path(audio.filename).name  # strip any path components
+        filepath = UPLOAD_FOLDER / safe_name
+        log.info(f"[PREDICT] Saving to: {filepath.absolute()}")
+
+        contents = await audio.read()
+        if len(contents) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)} MB.",
+            )
+
         with open(filepath, "wb") as f:
-            contents = await audio.read()
             f.write(contents)
-        
-        # Verify file exists before processing
-        if not filepath.exists():
-            raise FileNotFoundError(f"File was not saved correctly: {filepath.absolute()}")
-        
+
         file_size = filepath.stat().st_size
-        print(f"[PREDICT] File saved: {file_size} bytes")
-        
-        save_time = time.time() - start_time
-        print(f"[PREDICT] Saved in {save_time:.2f}s")
-        
-        # Make prediction
-        print(f"[PREDICT] Starting inference...")
+        log.info(f"[PREDICT] Saved {file_size:,} bytes in {time.time() - start_time:.2f}s")
+
+        # ----------------------------------------------------------------
+        # 2. Run classification (real model or mock)
+        # ----------------------------------------------------------------
+        log.info("[PREDICT] Starting inference...")
         inference_start = time.time()
-        result = inference.classify_audio(str(filepath.absolute()))
-        inference_time = time.time() - inference_start
-        print(f"[PREDICT] Inference: {inference_time:.2f}s")
-        print(f"[PREDICT] Result: {result}")
-        
+        result = classify_audio(str(filepath.absolute()))
+        log.info(f"[PREDICT] Inference done in {time.time() - inference_start:.2f}s")
+        log.info(f"[PREDICT] Result: {result['predicted_disease']} ({result['confidence']:.1%})")
+
         total_time = time.time() - start_time
-        print(f"[PREDICT] Total: {total_time:.2f}s\n")
-        
+        log.info(f"[PREDICT] Total: {total_time:.2f}s")
+
         return JSONResponse({
             "success": True,
             "prediction": result,
-            "processing_time": total_time
+            "processing_time": round(total_time, 3),
         })
-    
+
+    except HTTPException:
+        raise  # re-raise validation errors unchanged
+
     except Exception as e:
-        print(f"[PREDICT] ERROR: {str(e)}")
-        import traceback
         error_trace = traceback.format_exc()
-        print(error_trace)
+        log.error(f"[PREDICT] ERROR: {e}\n{error_trace}")
         return JSONResponse(
             status_code=500,
             content={
+                "success": False,
                 "error": f"Error processing audio: {str(e)}",
                 "type": type(e).__name__,
-                "traceback": error_trace
-            }
+            },
         )
+
     finally:
-        # Clean up uploaded file
+        # ----------------------------------------------------------------
+        # 3. Always clean up the uploaded file
+        # ----------------------------------------------------------------
         if filepath and filepath.exists():
             try:
                 filepath.unlink()
-                print(f"[PREDICT] Cleaned up: {filepath}")
-            except Exception as e:
-                print(f"[PREDICT] Warning: Could not delete {filepath}: {e}")
+                log.info(f"[PREDICT] Cleaned up: {filepath.name}")
+            except Exception as cleanup_err:
+                log.warning(f"[PREDICT] Could not delete {filepath}: {cleanup_err}")
 
 
-@app.post('/predict-url')
+@app.post("/predict-url")
 async def predict_url(request_data: URLPredictionRequest):
-    """Predict disease from audio URL."""
-    
-    if not model_loaded:
-        raise HTTPException(
-            status_code=500,
-            detail="Model not loaded. Please ensure cough_classifier.pt exists."
-        )
-    
+    """
+    Classify a cough recording from a remote URL.
+
+    The server downloads the file, runs classification, then deletes the file.
+    """
+    filepath = None
     try:
-        # Download file
-        filename = os.path.basename(request_data.url).split('?')[0]
-        if not filename:
-            filename = "audio.wav"
-        
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        filename = Path(request_data.url.split("?")[0]).name or "audio.wav"
+        filepath = UPLOAD_FOLDER / filename
+        log.info(f"[PREDICT-URL] Downloading: {request_data.url}")
         urlretrieve(request_data.url, filepath)
-        
-        # Make prediction
-        result = inference.classify_audio(filepath)
-        
-        # Clean up
-        os.remove(filepath)
-        
-        return JSONResponse({
-            "success": True,
-            "prediction": result
-        })
-    
+
+        result = classify_audio(str(filepath))
+
+        return JSONResponse({"success": True, "prediction": result})
+
     except Exception as e:
+        log.error(f"[PREDICT-URL] ERROR: {e}")
         return JSONResponse(
             status_code=500,
-            content={"error": f"Error processing audio URL: {str(e)}"}
+            content={"success": False, "error": f"Error processing audio URL: {str(e)}"},
         )
 
+    finally:
+        if filepath and filepath.exists():
+            try:
+                filepath.unlink()
+            except Exception:
+                pass
 
-@app.post('/top-predictions')
+
+@app.post("/top-predictions")
 async def get_top_predictions(audio: UploadFile = File(...), top_k: int = 3):
-    """Get top-k predictions for uploaded audio file."""
-    
-    if not model_loaded:
-        raise HTTPException(
-            status_code=500,
-            detail="Model not loaded. Please ensure cough_classifier.pt exists."
-        )
-    
-    if not allowed_file(audio.filename):
-        raise HTTPException(
-            status_code=400,
-            detail=f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
-        )
-    
+    """
+    Return the top-k most likely diseases for an uploaded audio file.
+
+    Useful for displaying a ranked list in the frontend.
+    """
+    filepath = None
     try:
-        filepath = os.path.join(UPLOAD_FOLDER, audio.filename)
+        if not allowed_file(audio.filename or ""):
+            raise HTTPException(
+                status_code=400,
+                detail=f"File type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
+            )
+
+        safe_name = Path(audio.filename).name
+        filepath = UPLOAD_FOLDER / safe_name
         with open(filepath, "wb") as f:
-            contents = await audio.read()
-            f.write(contents)
-        
-        top_preds = inference.get_top_predictions(filepath, top_k=top_k)
-        
-        os.remove(filepath)
-        
+            f.write(await audio.read())
+
+        result = classify_audio(str(filepath))
+        probs = result.get("all_probabilities", {})
+
+        top_preds = sorted(probs.items(), key=lambda x: x[1], reverse=True)[:top_k]
+
         return JSONResponse({
             "success": True,
             "top_predictions": [
-                {
-                    "disease": pred[0],
-                    "confidence": float(pred[1])
-                }
-                for pred in top_preds
-            ]
+                {"disease": disease, "confidence": round(float(conf), 4)}
+                for disease, conf in top_preds
+            ],
         })
-    
+
+    except HTTPException:
+        raise
+
     except Exception as e:
+        log.error(f"[TOP-PREDICT] ERROR: {e}")
         return JSONResponse(
             status_code=500,
-            content={"error": f"Error processing audio: {str(e)}"}
+            content={"success": False, "error": f"Error processing audio: {str(e)}"},
         )
 
-
-@app.get('/')
-def index():
-    """API documentation."""
-    return JSONResponse({
-        "name": "Cough Classifier API",
-        "version": "1.0.0",
-        "endpoints": {
-            "/health": {
-                "method": "GET",
-                "description": "Check API health and model status"
-            },
-            "/classes": {
-                "method": "GET",
-                "description": "Get available disease classes"
-            },
-            "/predict": {
-                "method": "POST",
-                "description": "Classify cough from uploaded audio file",
-                "parameters": {
-                    "audio": "Audio file (wav, mp3, m4a, flac)"
-                }
-            },
-            "/predict-url": {
-                "method": "POST",
-                "description": "Classify cough from audio URL",
-                "parameters": {
-                    "url": "URL to audio file"
-                }
-            },
-            "/top-predictions": {
-                "method": "POST",
-                "description": "Get top-k predictions for audio file",
-                "parameters": {
-                    "audio": "Audio file (wav, mp3, m4a, flac)",
-                    "top_k": "Number of top predictions (default: 3)"
-                }
-            }
-        }
-    })
+    finally:
+        if filepath and filepath.exists():
+            try:
+                filepath.unlink()
+            except Exception:
+                pass
 
 
-if __name__ == '__main__':
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
     import uvicorn
-    print("Starting Cough Classifier API...")
-    print(f"Model loaded: {model_loaded}")
-    print(f"Device: {torch.device('cuda' if torch.cuda.is_available() else 'cpu')}")
-    print("\nAPI Documentation: http://localhost:8000/")
-    print("Interactive Docs: http://localhost:8000/docs")
-    uvicorn.run(app, host='0.0.0.0', port=8000)
+
+    log.info("=" * 60)
+    log.info("Starting CoughNet API")
+    log.info(f"  Model loaded : {model_loaded}")
+    log.info(f"  Mock mode    : {not model_loaded}")
+    log.info(f"  Device       : {torch.device('cuda' if torch.cuda.is_available() else 'cpu')}")
+    log.info("=" * 60)
+    log.info("API docs : http://localhost:8000/docs")
+    log.info("Health   : http://localhost:8000/health")
+
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
