@@ -17,7 +17,7 @@ def train_model(
     learning_rate=0.001,
     train_split=0.8,
     output_model="cough_classifier.pt",
-    max_samples=200
+    max_samples=None
 ):
     """
     Train the cough classifier model.
@@ -127,8 +127,8 @@ def main():
     parser.add_argument(
         "--max-samples",
         type=int,
-        default=200,
-        help="Maximum number of samples to use for training (default: 200)"
+        default=0,
+        help="Maximum number of samples to use for training (default: 0, meaning all samples)"
     )
     
     args = parser.parse_args()
@@ -140,7 +140,7 @@ def main():
         learning_rate=args.learning_rate,
         train_split=args.train_split,
         output_model=args.output,
-        max_samples=args.max_samples
+        max_samples=args.max_samples if args.max_samples > 0 else None
     )
 
 

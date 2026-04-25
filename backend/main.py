@@ -8,6 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 import os
 from pathlib import Path
 import librosa
+import random
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -31,6 +32,7 @@ SAMPLE_RATE = 16000
 N_MELS = 64
 N_FFT = 400
 HOP_LENGTH = 160
+TRAIN_AUDIO_EXTENSIONS = ("*.wav", "*.mp3", "*.m4a", "*.flac", "*.ogg")
 
 
 class CoughAudioDataset(Dataset):
@@ -45,19 +47,50 @@ class CoughAudioDataset(Dataset):
         self.audio_files = []
         self.labels = []
         
-        # Load audio file paths and labels
+        # Load audio file paths and labels using stable training formats.
         for class_idx, class_name in DISEASE_CLASSES.items():
             class_dir = self.audio_dir / class_name
             if class_dir.exists():
-                audio_files = list(class_dir.glob("*.wav")) + list(class_dir.glob("*.mp3"))
+                audio_files = []
+                for pattern in TRAIN_AUDIO_EXTENSIONS:
+                    audio_files.extend(class_dir.glob(pattern))
                 for audio_file in audio_files:
                     self.audio_files.append(str(audio_file))
                     self.labels.append(class_idx)
         
-        # Limit dataset size if max_samples is specified
+        # Limit dataset size if max_samples is specified.
+        # Shuffle before truncation to avoid class-order bias (e.g., all Healthy samples).
         if max_samples and len(self.audio_files) > max_samples:
-            self.audio_files = self.audio_files[:max_samples]
-            self.labels = self.labels[:max_samples]
+            indices = list(range(len(self.audio_files)))
+            random.Random(42).shuffle(indices)
+            selected = indices[:max_samples]
+            self.audio_files = [self.audio_files[i] for i in selected]
+            self.labels = [self.labels[i] for i in selected]
+
+        # Remove files that cannot be decoded by either torchaudio or librosa.
+        valid_files = []
+        valid_labels = []
+        skipped_count = 0
+        for audio_file, label in zip(self.audio_files, self.labels):
+            try:
+                torchaudio.load(audio_file)
+                valid_files.append(audio_file)
+                valid_labels.append(label)
+                continue
+            except Exception:
+                pass
+
+            try:
+                librosa.load(audio_file, sr=None, mono=True)
+                valid_files.append(audio_file)
+                valid_labels.append(label)
+            except Exception:
+                skipped_count += 1
+
+        self.audio_files = valid_files
+        self.labels = valid_labels
+        if skipped_count:
+            print(f"Skipped {skipped_count} unreadable training files")
         
         # Mel-spectrogram transform
         self.mel_transform = T.MelSpectrogram(
@@ -67,6 +100,9 @@ class CoughAudioDataset(Dataset):
             hop_length=HOP_LENGTH
         )
         self.amplitude_to_db = T.AmplitudeToDB()
+        self.target_length = self.sample_rate * 3
+        # Keep a consistent fallback shape for unreadable files.
+        self.fallback_time_bins = self.mel_transform(torch.zeros(1, self.target_length)).shape[-1]
         
     def __len__(self):
         return len(self.audio_files)
@@ -78,18 +114,31 @@ class CoughAudioDataset(Dataset):
         # Load audio
         try:
             waveform, sr = torchaudio.load(audio_path)
+        except Exception:
+            # Fallback decoder for formats that torchaudio may not handle reliably.
+            try:
+                audio_data, sr = librosa.load(audio_path, sr=None, mono=True)
+                waveform = torch.FloatTensor(audio_data).unsqueeze(0)
+            except Exception as e:
+                print(f"Error loading {audio_path}: {e}")
+                return torch.zeros(1, self.n_mels, self.fallback_time_bins), label
+
+        try:
             
+            # Convert stereo/multi-channel to mono for consistent tensor shapes.
+            if waveform.shape[0] > 1:
+                waveform = waveform.mean(dim=0, keepdim=True)
+
             # Resample if necessary
             if sr != self.sample_rate:
                 resampler = T.Resample(sr, self.sample_rate)
                 waveform = resampler(waveform)
             
             # Normalize duration (3 seconds)
-            target_length = self.sample_rate * 3
-            if waveform.shape[1] < target_length:
-                waveform = torch.nn.functional.pad(waveform, (0, target_length - waveform.shape[1]))
+            if waveform.shape[1] < self.target_length:
+                waveform = torch.nn.functional.pad(waveform, (0, self.target_length - waveform.shape[1]))
             else:
-                waveform = waveform[:, :target_length]
+                waveform = waveform[:, :self.target_length]
             
             # Convert to mel-spectrogram
             mel_spec = self.mel_transform(waveform)
@@ -101,8 +150,8 @@ class CoughAudioDataset(Dataset):
             return mel_spec, label
         except Exception as e:
             print(f"Error loading {audio_path}: {e}")
-            # Return a dummy zero tensor if loading fails
-            return torch.zeros(1, self.n_mels, 282), 0
+            # Return a dummy zero tensor if preprocessing fails.
+            return torch.zeros(1, self.n_mels, self.fallback_time_bins), label
 
 
 class CoughClassifier(nn.Module):
