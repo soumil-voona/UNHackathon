@@ -1,148 +1,148 @@
-# CoughNet — Respiratory Health Classification
+# CoughNet
 
-CoughNet is a full-stack web application designed to analyze human cough recordings and classify potential respiratory conditions using machine learning. Built for the UN Hackathon, this project provides a seamless, browser-based intake module that captures audio, visualizes the signal in real-time, and processes it through a FastAPI backend.
+CoughNet is a full-stack hackathon project for cough-based respiratory screening. The frontend lets a user record a short cough sample in the browser, shows the signal as it is captured, and sends the audio to a Python backend for classification. The backend returns a disease prediction with confidence scores and can fall back to a mock classifier if the trained model is not available, which keeps the demo runnable end to end.
 
-## 🎯 Problem Statement
+## What it does
 
-Respiratory diseases like Tuberculosis, COVID-19, and Pneumonia affect millions globally, often going undetected in early stages due to lack of accessible screening tools. Traditional diagnostic pathways require clinical visits and specialized equipment, creating a massive surveillance gap in low-resource settings.
+- Records cough audio directly from the browser with microphone access.
+- Shows live recording state and a simple visual feedback loop while audio is captured.
+- Sends the recording to a FastAPI service for analysis.
+- Returns a ranked probability distribution across the supported respiratory classes.
+- Flags the result as demo mode when the real model file is missing.
+- Exposes utility API routes for health checks, class listing, and top-k predictions.
 
-## 💡 Solution
+## Prerequisites
 
-CoughNet bridges this gap by turning any commodity smartphone or laptop into a preliminary screening tool. By capturing a 3-second cough sample directly in the browser and analyzing its acoustic biomarkers (MFCCs and Mel-spectrograms), the system provides an immediate probability distribution across six respiratory conditions, enabling earlier triage and intervention.
+Before you start, make sure these are installed:
 
-## ✨ Features
+- Python 3.12 or newer
+- Node.js 18 or newer
+- Corepack, which ships with recent Node.js versions
+- A browser with microphone access for the live demo
 
-- **Browser-Native Audio Capture**: Record cough samples directly from the web UI using the `MediaRecorder` API without requiring native app installation.
-- **Real-Time Signal Visualization**: Live time-domain waveform and frequency-domain spectrogram rendering using the Web Audio API (`AnalyserNode`).
-- **Mock AI Fallback Mode**: Fully functional demo mode that simulates realistic probability distributions when the trained PyTorch model is not present.
-- **Dynamic Escalation Logic**: Automatically flags high-risk predictions (e.g., COVID-19, Tuberculosis, Pneumonia > 50% confidence) with clear clinical escalation warnings.
-- **Local Asset Download**: Allows users to download their recorded `.webm` files for local inspection or dataset contribution.
-- **Re-record Capability**: Seamlessly discard previous recordings and try again with a single click.
+If `pnpm` is not installed globally, that is fine. This repo uses Corepack to run pnpm in a reproducible way.
+If your Node.js install does not include Corepack yet, run `npm install -g corepack` once, then run `corepack enable`.
 
-## 🧱 Tech Stack
+## Project layout
 
-### Frontend
-- **Framework**: React 18 + TypeScript + Vite
-- **Styling**: Tailwind CSS + custom animations
-- **Audio Processing**: Web Audio API, `MediaRecorder`
-- **Visualization**: HTML5 Canvas, Three.js (Hero scene), GSAP (Scroll animations)
-- **Icons**: Lucide React
+- `ReactFrontend/` contains the Vite frontend.
+- `backend/` contains the FastAPI service, model code, and inference helpers.
+- `documentation/` contains the longer project and dataset notes used during development.
 
-### Backend
-- **Framework**: FastAPI (Python)
-- **Server**: Uvicorn
-- **Machine Learning**: PyTorch, Torchaudio
-- **Audio Processing**: Librosa, Soundfile
-- **File Handling**: `python-multipart` for robust audio uploads
+## Supported classes
 
----
+The API currently works with these labels:
 
-## 📂 Project Structure
+- Healthy
+- Cold Cough
+- COVID-19
+- Asthma
+- Bronchitis
+- Tuberculosis
+- Pneumonia
 
-```text
-UNHackathon/
-├── ReactFrontend/               # React + Vite Frontend
-│   ├── client/src/
-│   │   ├── pages/Home.tsx       # Main UI, recording logic, and visualizations
-│   │   ├── index.css            # Tailwind directives and custom styles
-│   │   └── main.tsx             # React entry point
-│   ├── package.json             # Frontend dependencies
-│   └── .env.example             # Environment variables template
-│
-├── backend/                     # FastAPI Backend
-│   ├── api.py                   # REST API endpoints and mock AI logic
-│   ├── main.py                  # PyTorch CNN model architecture
-│   ├── inference.py             # Model loading and prediction wrapper
-│   ├── requirements.txt         # Python dependencies
-│   └── uploads/                 # Temporary storage for audio processing
-│
-└── README.md                    # Project documentation
+## Fresh machine setup
+
+If you are setting the project up on a new machine, use this flow.
+
+### 1. Backend
+
+1. Open a terminal in the repository root.
+2. Create and activate a virtual environment with Python 3.12:
+
+```bash
+cd backend
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
 ```
 
----
+3. Install the Python dependencies:
 
-## 🚀 Setup Instructions
+```bash
+pip install -r requirements.txt
+```
 
-The project is designed to be fully runnable locally with minimal setup.
+4. Start the API server:
 
-### 1. Start the Backend (FastAPI)
+```bash
+python api.py
+```
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Install the required Python dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Start the FastAPI server:
-   ```bash
-   python api.py
-   ```
-   *The server will start on `http://localhost:8000`. If `cough_classifier.pt` is not found, it will automatically fall back to the Mock AI mode so the app remains fully functional.*
+The backend runs on `http://localhost:8000` by default. The API docs are available at `http://localhost:8000/docs`.
 
-### 2. Start the Frontend (React/Vite)
+If `cough_classifier.pt` is present in `backend/`, the server uses the trained model. If it is missing, the API switches to mock inference so the demo still works.
 
-1. Open a new terminal and navigate to the frontend directory:
-   ```bash
-   cd ReactFrontend
-   ```
-2. Install Node.js dependencies:
-   ```bash
-   npm install
-   # or: pnpm install / yarn install
-   ```
-3. Create your environment file:
-   ```bash
-   cp .env.example .env
-   ```
-   *(Ensure `VITE_API_URL=http://127.0.0.1:8000` is set in the `.env` file)*
-4. Start the development server:
-   ```bash
-   npm run dev
-   # or: pnpm dev / yarn dev
-   ```
-5. Open your browser to the URL provided by Vite (usually `http://localhost:5173`).
+### 2. Frontend
 
----
+1. Open a second terminal.
+2. Install the Node.js dependencies:
 
-## 🎤 Demo Instructions
+```bash
+cd ReactFrontend
+corepack enable
+corepack pnpm install
+```
 
-1. Open the frontend application in your browser.
-2. Scroll down to the **"Hear It for Yourself"** section.
-3. Click and hold the **"Hold to Record"** button.
-4. Allow microphone permissions if prompted by your browser.
-5. Cough into your microphone for 3 seconds while holding the button.
-6. Release the button. The audio will be sent to the backend.
-7. Watch the probability distribution update with the classification results.
-8. (Optional) Click **"Download Recording"** to save the audio file, or **"↺ Re-record"** to try again.
+3. Set the backend URL for the frontend:
 
----
+```bash
+echo 'VITE_API_URL=http://127.0.0.1:8000' > .env
+```
 
-## 🧪 AI Processing Logic
+4. Start the frontend dev server:
 
-The backend is architected to support both real inference and simulated demos:
+```bash
+corepack pnpm dev
+```
 
-1. **Real Inference**: If a trained PyTorch model (`cough_classifier.pt`) is placed in the `backend/` directory, `api.py` loads it via `inference.py`. It extracts a 64-bin Mel-spectrogram from the uploaded audio and runs it through a 4-layer Convolutional Neural Network to generate predictions.
-2. **Mock AI Fallback**: If the model file is missing, the API gracefully falls back to a rule-based mock classifier. This ensures the frontend UI, loading states, and error handling can be fully evaluated by hackathon judges without requiring a heavy model download.
+5. Open the local Vite URL shown in the terminal, usually `http://localhost:5173`.
 
----
+If you want to point at a deployed backend later, change `VITE_API_URL` to that service URL.
 
-## 🌐 Deployment (Optional)
+## Run the backend
 
-### Frontend (Vercel / Netlify)
-1. Connect your GitHub repository to Vercel.
-2. Set the Framework Preset to **Vite**.
-3. Add the Environment Variable: `VITE_API_URL=https://your-backend-url.onrender.com`
-4. Deploy.
+If you already created the backend virtual environment, you can restart the API with:
 
-### Backend (Render / Railway)
-1. Create a new Web Service on Render connected to your repository.
-2. Set the Root Directory to `backend`.
-3. Set the Build Command to `pip install -r requirements.txt`.
-4. Set the Start Command to `uvicorn api:app --host 0.0.0.0 --port $PORT`.
-5. Deploy.
+```bash
+cd backend
+source .venv/bin/activate
+python api.py
+```
 
----
+## Run the frontend
 
-*Built for the UN Hackathon. Empowering global health through accessible acoustic screening.*
+If dependencies are already installed, restart the frontend with:
+
+```bash
+cd ReactFrontend
+corepack pnpm dev
+```
+
+## Demo flow
+
+1. Open the frontend in a browser.
+2. Go to the live demo section.
+3. Hold the record button and allow microphone access.
+4. Speak or cough for about 3 seconds.
+5. Release the button and wait for the prediction.
+6. Review the probability breakdown and the mock-mode notice if the trained model is not loaded.
+
+## API routes
+
+- `GET /` returns a short API overview.
+- `GET /health` reports backend status and whether the trained model loaded.
+- `GET /classes` lists the supported disease labels.
+- `POST /predict` uploads an audio file and returns a classification.
+- `POST /predict-url` downloads audio from a URL and classifies it.
+- `POST /top-predictions` returns the top-k likely classes.
+
+## Notes
+
+- The backend accepts common audio formats such as `wav`, `mp3`, `m4a`, `flac`, `webm`, and `ogg`.
+- Uploaded files are cleaned up after each request.
+- The frontend expects the backend to be running before you try the live demo.
+
+## Built for the hackathon
+
+CoughNet was built as a judge-friendly demo for accessible respiratory screening. The goal is to show the full path from microphone input to a machine-learning prediction in a way that is easy to run locally and easy to explain.
