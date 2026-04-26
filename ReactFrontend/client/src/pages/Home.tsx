@@ -38,6 +38,43 @@ const PIPELINE_BG =
 const FOOTER_BG =
   "https://d2xsxph8kpxj0f.cloudfront.net/310519663573989122/H7jnXrQGPUzwK2gemz8xEH/coughnet-footer-particle-field-FtP6j6jKn4TAC3e7jZeR2P.webp";
 
+function encodeWavBlob(chunks: Float32Array[], sampleRate: number) {
+  const totalSamples = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const buffer = new ArrayBuffer(44 + totalSamples * 2);
+  const view = new DataView(buffer);
+
+  const writeString = (offset: number, value: string) => {
+    for (let index = 0; index < value.length; index += 1) {
+      view.setUint8(offset + index, value.charCodeAt(index));
+    }
+  };
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + totalSamples * 2, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, "data");
+  view.setUint32(40, totalSamples * 2, true);
+
+  let offset = 44;
+  for (const chunk of chunks) {
+    for (let index = 0; index < chunk.length; index += 1) {
+      const sample = Math.max(-1, Math.min(1, chunk[index]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  }
+
+  return new Blob([view], { type: "audio/wav" });
+}
+
 const navItems = [
   { id: "home", label: "Home" },
   { id: "how-it-works", label: "How It Works" },
@@ -518,12 +555,13 @@ function GeometricAvatar({ palette }: { palette: string[] }) {
 function LiveDemo({ highContrast }: { highContrast: boolean }) {
   const waveformRef = useRef<HTMLCanvasElement | null>(null);
   const spectrogramRef = useRef<HTMLCanvasElement | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const pcmChunksRef = useRef<Float32Array[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const isStoppingRef = useRef(false);
   const animationRef = useRef<number>(0);
   const timeoutRef = useRef<number | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -611,8 +649,10 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
     streamRef.current = null;
     sourceRef.current?.disconnect();
     analyserRef.current?.disconnect();
+    processorRef.current?.disconnect();
     sourceRef.current = null;
     analyserRef.current = null;
+    processorRef.current = null;
     audioContextRef.current?.close().catch(() => undefined);
     audioContextRef.current = null;
   };
@@ -672,20 +712,94 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
   };
 
   const stopRecording = () => {
-    if (!isRecording) return;
+    if (!isRecording || isStoppingRef.current) return;
+    isStoppingRef.current = true;
+    stopVisuals();
     setIsRecording(false);
     setRemaining(3);
-      setStatus("Recording complete. Sending to classifier...");
-    mediaRecorderRef.current?.stop();
+    setStatus("Recording complete. Sending to classifier...");
+
+    if (pcmChunksRef.current.length === 0) {
+      setStatus("Awaiting microphone input.");
+      cleanupAudio();
+      isStoppingRef.current = false;
+      return;
+    }
+
+    const sampleRate = audioContextRef.current?.sampleRate ?? 16000;
+    const blob = encodeWavBlob(pcmChunksRef.current, sampleRate);
+    pcmChunksRef.current = [];
+
+    const url = URL.createObjectURL(blob);
+    setDownloadUrl(url);
+
+    setIsProcessing(true);
+    setStatus("Analyzing audio...");
+    const startTime = Date.now();
+
+    void (async () => {
+      try {
+        const formData = new FormData();
+        formData.append("audio", blob, "recording.wav");
+
+        const apiUrl = `${API_BASE}/predict`;
+        console.log("Sending to", apiUrl);
+
+        const statusInterval = window.setInterval(() => {
+          const elapsedSeconds = Math.round((Date.now() - startTime) / 1000);
+          setStatus(`Analyzing audio... (${elapsedSeconds}s)`);
+        }, 1000);
+
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          body: formData,
+        });
+
+        window.clearInterval(statusInterval);
+        const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(2);
+        console.log("Response status:", response.status, response.statusText, `(${elapsedSeconds}s)`);
+
+        const data = await response.json();
+        console.log("Response data:", data);
+
+        if (response.ok) {
+          if (data.prediction && data.prediction.all_probabilities) {
+            const predDict = data.prediction.all_probabilities;
+            console.log("Probabilities:", predDict);
+            setPredictions(predDict);
+            setTopPrediction(data.prediction.predicted_disease);
+            setIsMock(data.prediction.mock === true);
+            const processingTime = data.processing_time ? data.processing_time.toFixed(2) : elapsedSeconds;
+            setStatus(`✓ ${data.prediction.predicted_disease} — ${(data.prediction.confidence * 100).toFixed(1)}% confidence (${processingTime}s)`);
+          } else {
+            setStatus("Received response but no predictions found");
+            console.error("Invalid response format:", data);
+          }
+        } else {
+          const errorMsg = data.detail || data.error || response.statusText;
+          setStatus(`Error: ${errorMsg}`);
+          console.error("API error response:", data);
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : "Unknown error";
+        setStatus(`Connection error: ${errorMsg}. Make sure the backend is running on ${API_BASE}`);
+        console.error("Full API error:", error);
+      } finally {
+        setIsProcessing(false);
+        isStoppingRef.current = false;
+      }
+    })();
+
     cleanupAudio();
   };
 
   const startRecording = async () => {
-    if (isRecording) return;
+    if (isRecording || isProcessing || isStoppingRef.current) return;
     try {
       setStatus("Recording… hold for 3 seconds.");
       setIsMock(false);
       setTopPrediction(null);
+      pcmChunksRef.current = [];
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       setDownloadUrl("");
       setPredictions(null);
@@ -698,81 +812,16 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
       analyser.fftSize = 2048;
       analyser.smoothingTimeConstant = 0.84;
       source.connect(analyser);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processor.onaudioprocess = (event) => {
+        pcmChunksRef.current.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+      };
+      source.connect(processor);
+      processor.connect(audioContext.destination);
       sourceRef.current = source;
       analyserRef.current = analyser;
+      processorRef.current = processor;
       audioContextRef.current = audioContext;
-
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-      chunksRef.current = [];
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunksRef.current.push(event.data);
-      };
-      recorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
-        const url = URL.createObjectURL(blob);
-        setDownloadUrl(url);
-        
-        // Send to FastAPI backend
-        setIsProcessing(true);
-        setStatus("Analyzing audio...");
-        const startTime = Date.now();
-        console.log("Recording blob size:", blob.size, "type:", blob.type);
-        
-        try {
-          const formData = new FormData();
-          formData.append("audio", blob, "recording.webm");
-          
-          const apiUrl = `${API_BASE}/predict`;
-          console.log("Sending to", apiUrl);
-          
-          // Update status every second while waiting
-          const statusInterval = setInterval(() => {
-            const elapsedSeconds = Math.round((Date.now() - startTime) / 1000);
-            setStatus(`Analyzing audio... (${elapsedSeconds}s)`);
-          }, 1000);
-          
-          const response = await fetch(apiUrl, {
-            method: "POST",
-            body: formData,
-          });
-          
-          clearInterval(statusInterval);
-          const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(2);
-          console.log("Response status:", response.status, response.statusText, `(${elapsedSeconds}s)`);
-          
-          const data = await response.json();
-          console.log("Response data:", data);
-          
-          if (response.ok) {
-            if (data.prediction && data.prediction.all_probabilities) {
-              // Extract probabilities from response
-              const predDict = data.prediction.all_probabilities;
-              console.log("Probabilities:", predDict);
-              setPredictions(predDict);
-              setTopPrediction(data.prediction.predicted_disease);
-              setIsMock(data.prediction.mock === true);
-              const processingTime = data.processing_time ? data.processing_time.toFixed(2) : elapsedSeconds;
-              setStatus(`✓ ${data.prediction.predicted_disease} — ${(data.prediction.confidence * 100).toFixed(1)}% confidence (${processingTime}s)`);
-            } else {
-              setStatus("Received response but no predictions found");
-              console.error("Invalid response format:", data);
-            }
-          } else {
-            const errorMsg = data.detail || data.error || response.statusText;
-            setStatus(`Error: ${errorMsg}`);
-            console.error("API error response:", data);
-          }
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : "Unknown error";
-          setStatus(`Connection error: ${errorMsg}. Make sure the backend is running on ${API_BASE}`);
-          console.error("Full API error:", error);
-        } finally {
-          setIsProcessing(false);
-        }
-      };
-
-      recorder.start();
       setIsRecording(true);
       setRemaining(3);
       drawActiveFrames();
@@ -872,7 +921,7 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                   <div className="flex flex-col items-center gap-2">
                     <a
                       href={downloadUrl}
-                      download="coughnet-recording.webm"
+                      download="coughnet-recording.wav"
                       className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-white/4 px-4 py-2 font-[Space_Grotesk] text-sm font-bold text-cyan-50"
                     >
                       <Download className="h-4 w-4" />

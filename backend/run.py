@@ -67,7 +67,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-ALLOWED_EXTENSIONS = {"wav", "mp3", "m4a", "flac", "webm", "ogg"}
+ALLOWED_EXTENSIONS = {"wav", "webm"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 UPLOAD_FOLDER = Path(__file__).parent / "uploads"
 UPLOAD_FOLDER.mkdir(exist_ok=True)
@@ -90,19 +90,28 @@ DISEASE_CLASSES = {
 # ---------------------------------------------------------------------------
 model_loaded = False
 inference = None
+MODEL_PATH = Path(__file__).parent / "cough_classifier.pt"
 
 try:
     from inference import CoughInference
-    inference = CoughInference(model_path="cough_classifier.pt")
-    device = inference.trainer.device
-    log.info(f"Trained model loaded on device: {device}")
-    log.info(f"  GPU available: {torch.cuda.is_available()}")
-    model_loaded = True
+    inference = CoughInference(model_path=str(MODEL_PATH))
+    if inference.model_loaded:
+        device = inference.trainer.device
+        log.info(f"Trained model loaded on device: {device}")
+        log.info(f"  GPU available: {torch.cuda.is_available()}")
+        model_loaded = True
+    else:
+        inference = None
+        model_loaded = False
+        log.warning(
+            "Model checkpoint not found. Falling back to mock (rule-based) classifier. "
+            f"Expected checkpoint at: {MODEL_PATH}"
+        )
 except Exception as e:
     log.warning(
         f"Could not load trained model ({e}). "
         "Falling back to mock (rule-based) classifier. "
-        "Place cough_classifier.pt in the backend/ directory to use the real model."
+        f"Expected checkpoint at: {MODEL_PATH}"
     )
 
 
@@ -238,7 +247,7 @@ async def predict(audio: UploadFile = File(...)):
     """
     Classify a cough recording.
 
-    Accepts any common audio format (wav, mp3, webm, ogg, m4a, flac).
+    Accepts WAV directly, and WebM via temporary conversion for inference.
     Returns a JSON object with the predicted disease, confidence score,
     and the full probability distribution across all classes.
 

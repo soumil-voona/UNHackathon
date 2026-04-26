@@ -4,11 +4,14 @@ import torch.optim as optim
 import torchaudio
 import torchaudio.transforms as T
 import numpy as np
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, Subset
 import os
 from pathlib import Path
 import librosa
 import random
+import shutil
+import subprocess
+import hashlib
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -32,7 +35,91 @@ SAMPLE_RATE = 16000
 N_MELS = 64
 N_FFT = 400
 HOP_LENGTH = 160
-TRAIN_AUDIO_EXTENSIONS = ("*.wav", "*.mp3", "*.m4a", "*.flac", "*.ogg")
+TRAIN_AUDIO_EXTENSIONS = ("*.wav", "*.webm")
+
+
+def resolve_ffmpeg_binary():
+    """Find an ffmpeg binary across common PATH/Homebrew locations."""
+    candidates = []
+
+    path_bin = shutil.which("ffmpeg")
+    if path_bin:
+        candidates.append(Path(path_bin))
+
+    for static_path in [
+        Path("/opt/homebrew/bin/ffmpeg"),
+        Path("/usr/local/bin/ffmpeg"),
+    ]:
+        if static_path.exists():
+            candidates.append(static_path)
+
+    try:
+        brew_prefix = subprocess.run(
+            ["brew", "--prefix", "ffmpeg"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        if brew_prefix.returncode == 0:
+            brew_bin = Path(brew_prefix.stdout.strip()) / "bin" / "ffmpeg"
+            if brew_bin.exists():
+                candidates.append(brew_bin)
+    except Exception:
+        pass
+
+    for cellar_root in [Path("/opt/homebrew/Cellar/ffmpeg"), Path("/usr/local/Cellar/ffmpeg")]:
+        if cellar_root.exists():
+            cellar_bins = sorted(cellar_root.glob("*/bin/ffmpeg"), reverse=True)
+            candidates.extend(cellar_bins)
+
+    for candidate in candidates:
+        if candidate.exists() and os.access(candidate, os.X_OK):
+            return str(candidate)
+
+    # Fallback: Python-packaged ffmpeg binary (imageio-ffmpeg).
+    try:
+        import imageio_ffmpeg
+
+        bundled = Path(imageio_ffmpeg.get_ffmpeg_exe())
+        if bundled.exists() and os.access(bundled, os.X_OK):
+            return str(bundled)
+    except Exception:
+        pass
+
+    return None
+
+
+def extract_labels_from_dataset(dataset):
+    """Extract integer class labels from a Dataset or Subset."""
+    if hasattr(dataset, "labels"):
+        return [int(label) for label in dataset.labels]
+
+    if isinstance(dataset, Subset):
+        base_dataset = dataset.dataset
+        if hasattr(base_dataset, "labels"):
+            return [int(base_dataset.labels[i]) for i in dataset.indices]
+
+    labels = []
+    for _, label in dataset:
+        labels.append(int(label))
+    return labels
+
+
+def compute_class_weights(labels, num_classes=NUM_CLASSES):
+    """Compute inverse-frequency class weights for CrossEntropyLoss."""
+    if not labels:
+        return torch.ones(num_classes, dtype=torch.float32)
+
+    counts = np.bincount(labels, minlength=num_classes).astype(np.float32)
+    nonzero = counts > 0
+    weights = np.zeros(num_classes, dtype=np.float32)
+
+    # Balanced weighting: N / (K * count_c), applied only to observed classes.
+    observed_classes = max(1, int(nonzero.sum()))
+    total_observed_samples = counts[nonzero].sum()
+    weights[nonzero] = total_observed_samples / (observed_classes * counts[nonzero])
+
+    return torch.tensor(weights, dtype=torch.float32)
 
 
 class CoughAudioDataset(Dataset):
@@ -46,6 +133,10 @@ class CoughAudioDataset(Dataset):
         self.n_mels = n_mels
         self.audio_files = []
         self.labels = []
+        self.ffmpeg_bin = resolve_ffmpeg_binary()
+        self.converted_cache_dir = self.audio_dir / ".converted_webm"
+        self.converted_cache_dir.mkdir(exist_ok=True)
+        self._ffmpeg_warning_shown = False
         
         # Load audio file paths and labels using stable training formats.
         for class_idx, class_name in DISEASE_CLASSES.items():
@@ -55,8 +146,10 @@ class CoughAudioDataset(Dataset):
                 for pattern in TRAIN_AUDIO_EXTENSIONS:
                     audio_files.extend(class_dir.glob(pattern))
                 for audio_file in audio_files:
-                    self.audio_files.append(str(audio_file))
-                    self.labels.append(class_idx)
+                    prepared_file = self._prepare_training_file(audio_file)
+                    if prepared_file is not None:
+                        self.audio_files.append(str(prepared_file))
+                        self.labels.append(class_idx)
         
         # Limit dataset size if max_samples is specified.
         # Shuffle before truncation to avoid class-order bias (e.g., all Healthy samples).
@@ -91,7 +184,7 @@ class CoughAudioDataset(Dataset):
         self.labels = valid_labels
         if skipped_count:
             print(f"Skipped {skipped_count} unreadable training files")
-        
+
         # Mel-spectrogram transform
         self.mel_transform = T.MelSpectrogram(
             sample_rate=sample_rate,
@@ -103,7 +196,48 @@ class CoughAudioDataset(Dataset):
         self.target_length = self.sample_rate * 3
         # Keep a consistent fallback shape for unreadable files.
         self.fallback_time_bins = self.mel_transform(torch.zeros(1, self.target_length)).shape[-1]
-        
+
+    def _prepare_training_file(self, audio_file: Path):
+        """Convert WebM files to cached WAV for stable training decode."""
+        if audio_file.suffix.lower() != ".webm":
+            return audio_file
+
+        if not self.ffmpeg_bin:
+            if not self._ffmpeg_warning_shown:
+                print("Warning: ffmpeg not found; WebM files may be skipped if decoders cannot read them.")
+                self._ffmpeg_warning_shown = True
+            return audio_file
+
+        digest = hashlib.md5(str(audio_file).encode("utf-8")).hexdigest()[:12]
+        cached_wav = self.converted_cache_dir / f"{audio_file.stem}_{digest}.wav"
+        if cached_wav.exists():
+            return cached_wav
+
+        try:
+            result = subprocess.run(
+                [
+                    self.ffmpeg_bin,
+                    "-i",
+                    str(audio_file),
+                    "-acodec",
+                    "pcm_s16le",
+                    "-ar",
+                    str(self.sample_rate),
+                    str(cached_wav),
+                    "-y",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                print(f"Warning: failed to convert {audio_file.name}; keeping original WebM.")
+                return audio_file
+            return cached_wav
+        except Exception as exc:
+            print(f"Warning: failed to convert {audio_file.name} ({exc}); keeping original WebM.")
+            return audio_file
+
     def __len__(self):
         return len(self.audio_files)
     
@@ -232,6 +366,7 @@ class CoughClassifierTrainer:
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer, mode='min', factor=0.5, patience=5, verbose=True
         )
+        self.class_weights = None
         
         # Cache transforms for faster inference
         self.mel_transform = T.MelSpectrogram(
@@ -297,6 +432,18 @@ class CoughClassifierTrainer:
         best_val_loss = float('inf')
         patience = 10
         patience_counter = 0
+
+        train_labels = extract_labels_from_dataset(train_loader.dataset)
+        self.class_weights = compute_class_weights(train_labels, NUM_CLASSES).to(self.device)
+        self.criterion = nn.CrossEntropyLoss(weight=self.class_weights)
+
+        print("Class counts (train split):")
+        counts = np.bincount(train_labels, minlength=NUM_CLASSES)
+        for idx, class_name in DISEASE_CLASSES.items():
+            print(f"  {class_name}: {int(counts[idx])}")
+        print("Class weights:")
+        for idx, class_name in DISEASE_CLASSES.items():
+            print(f"  {class_name}: {self.class_weights[idx].item():.4f}")
         
         print("Starting training...")
         for epoch in range(epochs):
@@ -323,6 +470,8 @@ class CoughClassifierTrainer:
         """Predict the disease class for a given audio file"""
         import time as timing_module
         import subprocess
+        import tempfile
+        import shutil
         from pathlib import Path as PathlibPath
         
         t0 = timing_module.time()
@@ -331,93 +480,104 @@ class CoughClassifierTrainer:
         audio_file = PathlibPath(audio_path)
         if not audio_file.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
-        
-        print(f"  Loading audio from: {audio_file.absolute()}")
-        
-        # Convert WebM to WAV if needed
-        if audio_file.suffix.lower() == '.webm':
-            print(f"  Converting WebM to WAV...")
-            wav_path = audio_file.with_suffix('.wav')
+
+        temp_wav_path = None
+        suffix = audio_file.suffix.lower()
+        if suffix not in {'.wav', '.webm'}:
+            raise RuntimeError("Only WAV and WebM inputs are supported for prediction.")
+
+        # Convert WebM to a temporary WAV file just for this inference call.
+        if suffix == '.webm':
+            ffmpeg_bin = shutil.which("ffmpeg")
+            if not ffmpeg_bin:
+                raise RuntimeError("WebM input requires ffmpeg to be available on PATH.")
+
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+                temp_wav_path = PathlibPath(tmp_file.name)
+
             try:
-                # Use ffmpeg to convert webm (opus codec) to wav
                 result = subprocess.run(
-                    ['ffmpeg', '-i', str(audio_file), '-acodec', 'pcm_s16le', '-ar', '16000', str(wav_path), '-y'],
+                    [ffmpeg_bin, '-i', str(audio_file), '-acodec', 'pcm_s16le', '-ar', str(SAMPLE_RATE), str(temp_wav_path), '-y'],
                     capture_output=True,
-                    timeout=10,
-                    text=True
+                    text=True,
+                    timeout=20,
                 )
                 if result.returncode != 0:
-                    raise RuntimeError(f"ffmpeg failed: {result.stderr}")
-                print(f"  Converted to: {wav_path}")
-                audio_path = str(wav_path)
-                audio_file = wav_path
-            except FileNotFoundError:
-                print(f"  ffmpeg not found. Install with: brew install ffmpeg")
-                raise RuntimeError("WebM conversion requires ffmpeg. Install with: brew install ffmpeg")
-            except Exception as e:
-                raise RuntimeError(f"WebM conversion failed: {e}")
+                    raise RuntimeError(f"ffmpeg failed: {result.stderr.strip()}")
+                audio_file = temp_wav_path
+                audio_path = str(audio_file)
+            except Exception:
+                if temp_wav_path is not None and temp_wav_path.exists():
+                    temp_wav_path.unlink(missing_ok=True)
+                raise
         
-        self.model.eval()
-        
-        # Load audio - prioritize torchaudio for speed
+        print(f"  Loading audio from: {audio_file.absolute()}")
+
         try:
-            print(f"  Loading audio with torchaudio...")
-            waveform, sr = torchaudio.load(audio_path)
-            print(f"  Loaded in {timing_module.time()-t0:.2f}s (sr={sr}Hz)")
-        except Exception as e:
-            print(f"  Torchaudio failed, trying librosa: {e}")
+            self.model.eval()
+
+            # Load audio - prioritize torchaudio for speed
             try:
-                audio_data, sr = librosa.load(audio_path, sr=None, mono=False)
-                waveform = torch.FloatTensor(audio_data).unsqueeze(0) if audio_data.ndim == 1 else torch.FloatTensor(audio_data)
+                print(f"  Loading audio with torchaudio...")
+                waveform, sr = torchaudio.load(audio_path)
                 print(f"  Loaded in {timing_module.time()-t0:.2f}s (sr={sr}Hz)")
-            except Exception as e2:
-                raise RuntimeError(f"Failed to load audio: {e2}")
-        
-        t1 = timing_module.time()
-        
-        # Convert to mono if stereo
-        if waveform.shape[0] > 1:
-            waveform = waveform.mean(dim=0, keepdim=True)
-        
-        # Resample if necessary
-        if sr != SAMPLE_RATE:
-            print(f"  Resampling from {sr}Hz to {SAMPLE_RATE}Hz...")
-            resampler = T.Resample(sr, SAMPLE_RATE).to(self.device)
-            waveform = waveform.to(self.device)
-            waveform = resampler(waveform)
-        else:
-            waveform = waveform.to(self.device)
-        
-        # Normalize duration to 3 seconds
-        target_length = SAMPLE_RATE * 3
-        if waveform.shape[1] < target_length:
-            waveform = torch.nn.functional.pad(waveform, (0, target_length - waveform.shape[1]))
-        else:
-            waveform = waveform[:, :target_length]
-        
-        print(f"  Audio prep in {timing_module.time()-t1:.2f}s")
-        t2 = timing_module.time()
-        
-        # Convert to mel-spectrogram using cached transforms
-        mel_spec = self.mel_transform(waveform)
-        mel_spec = self.amplitude_to_db(mel_spec)
-        mel_spec = (mel_spec - mel_spec.mean()) / (mel_spec.std() + 1e-5)
-        mel_spec = mel_spec.unsqueeze(0)  # Add batch dimension
-        
-        print(f"  MelSpec in {timing_module.time()-t2:.2f}s")
-        t3 = timing_module.time()
-        
-        with torch.no_grad():
-            output = self.model(mel_spec)
-            probabilities = torch.softmax(output, dim=1)
-            predicted_class = torch.argmax(output, dim=1).item()
-            confidence = probabilities[0, predicted_class].item()
-        
-        print(f"  Inference in {timing_module.time()-t3:.2f}s")
-        
-        return DISEASE_CLASSES[predicted_class], confidence, {
-            DISEASE_CLASSES[i]: probabilities[0, i].item() for i in range(NUM_CLASSES)
-        }
+            except Exception as e:
+                print(f"  Torchaudio failed, trying librosa: {e}")
+                try:
+                    audio_data, sr = librosa.load(audio_path, sr=None, mono=False)
+                    waveform = torch.FloatTensor(audio_data).unsqueeze(0) if audio_data.ndim == 1 else torch.FloatTensor(audio_data)
+                    print(f"  Loaded in {timing_module.time()-t0:.2f}s (sr={sr}Hz)")
+                except Exception as e2:
+                    raise RuntimeError(f"Failed to load audio: {e2}")
+
+            t1 = timing_module.time()
+
+            # Convert to mono if stereo
+            if waveform.shape[0] > 1:
+                waveform = waveform.mean(dim=0, keepdim=True)
+
+            # Resample if necessary
+            if sr != SAMPLE_RATE:
+                print(f"  Resampling from {sr}Hz to {SAMPLE_RATE}Hz...")
+                resampler = T.Resample(sr, SAMPLE_RATE).to(self.device)
+                waveform = waveform.to(self.device)
+                waveform = resampler(waveform)
+            else:
+                waveform = waveform.to(self.device)
+
+            # Normalize duration to 3 seconds
+            target_length = SAMPLE_RATE * 3
+            if waveform.shape[1] < target_length:
+                waveform = torch.nn.functional.pad(waveform, (0, target_length - waveform.shape[1]))
+            else:
+                waveform = waveform[:, :target_length]
+
+            print(f"  Audio prep in {timing_module.time()-t1:.2f}s")
+            t2 = timing_module.time()
+
+            # Convert to mel-spectrogram using cached transforms
+            mel_spec = self.mel_transform(waveform)
+            mel_spec = self.amplitude_to_db(mel_spec)
+            mel_spec = (mel_spec - mel_spec.mean()) / (mel_spec.std() + 1e-5)
+            mel_spec = mel_spec.unsqueeze(0)  # Add batch dimension
+
+            print(f"  MelSpec in {timing_module.time()-t2:.2f}s")
+            t3 = timing_module.time()
+
+            with torch.no_grad():
+                output = self.model(mel_spec)
+                probabilities = torch.softmax(output, dim=1)
+                predicted_class = torch.argmax(output, dim=1).item()
+                confidence = probabilities[0, predicted_class].item()
+
+            print(f"  Inference in {timing_module.time()-t3:.2f}s")
+
+            return DISEASE_CLASSES[predicted_class], confidence, {
+                DISEASE_CLASSES[i]: probabilities[0, i].item() for i in range(NUM_CLASSES)
+            }
+        finally:
+            if temp_wav_path is not None and temp_wav_path.exists():
+                temp_wav_path.unlink(missing_ok=True)
     
     def save_model(self, path):
         """Save the model to disk"""

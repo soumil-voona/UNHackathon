@@ -6,8 +6,15 @@ This script handles data loading, model training, and checkpoint management.
 import torch
 import argparse
 from pathlib import Path
-from torch.utils.data import DataLoader, random_split
-from backend.main import CoughClassifier, CoughClassifierTrainer, CoughAudioDataset, NUM_CLASSES
+from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
+from backend.main import (
+    CoughClassifier,
+    CoughClassifierTrainer,
+    CoughAudioDataset,
+    NUM_CLASSES,
+    compute_class_weights,
+    extract_labels_from_dataset,
+)
 
 
 def train_model(
@@ -65,8 +72,18 @@ def train_model(
     print(f"Training samples: {train_size}")
     print(f"Validation samples: {val_size}")
     
+    # Create a balanced sampler for the training split.
+    train_labels = extract_labels_from_dataset(train_dataset)
+    class_weights = compute_class_weights(train_labels, NUM_CLASSES)
+    sample_weights = torch.tensor([class_weights[label].item() for label in train_labels], dtype=torch.double)
+    train_sampler = WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=len(sample_weights),
+        replacement=True,
+    )
+
     # Create dataloaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
     
     # Initialize model and trainer
