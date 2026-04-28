@@ -6,7 +6,8 @@ This script handles data loading, model training, and checkpoint management.
 import torch
 import argparse
 from pathlib import Path
-from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
+from torch.utils.data import DataLoader, WeightedRandomSampler, Subset
+from sklearn.model_selection import train_test_split
 from backend.main import (
     CoughClassifier,
     CoughClassifierTrainer,
@@ -64,13 +65,30 @@ def train_model(
         print("Error: No audio files found in the directory!")
         return
     
-    # Split into train and validation
-    train_size = int(train_split * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    # Split into train and validation with stratification when possible.
+    all_labels = extract_labels_from_dataset(dataset)
+    all_indices = list(range(len(dataset)))
+
+    try:
+        train_indices, val_indices = train_test_split(
+            all_indices,
+            train_size=train_split,
+            random_state=42,
+            shuffle=True,
+            stratify=all_labels,
+        )
+        train_dataset = Subset(dataset, train_indices)
+        val_dataset = Subset(dataset, val_indices)
+    except ValueError:
+        # Fallback when stratification is not feasible (e.g., extremely tiny classes).
+        split_idx = int(train_split * len(all_indices))
+        rng = torch.Generator().manual_seed(42)
+        perm = torch.randperm(len(all_indices), generator=rng).tolist()
+        train_dataset = Subset(dataset, perm[:split_idx])
+        val_dataset = Subset(dataset, perm[split_idx:])
     
-    print(f"Training samples: {train_size}")
-    print(f"Validation samples: {val_size}")
+    print(f"Training samples: {len(train_dataset)}")
+    print(f"Validation samples: {len(val_dataset)}")
     
     # Create a balanced sampler for the training split.
     train_labels = extract_labels_from_dataset(train_dataset)

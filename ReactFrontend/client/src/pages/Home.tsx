@@ -770,7 +770,7 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
             setTopPrediction(data.prediction.predicted_disease);
             setIsMock(data.prediction.mock === true);
             const processingTime = data.processing_time ? data.processing_time.toFixed(2) : elapsedSeconds;
-            setStatus(`✓ ${data.prediction.predicted_disease} — ${(data.prediction.confidence * 100).toFixed(1)}% confidence (${processingTime}s)`);
+            setStatus(`✓ ${data.prediction.predicted_disease}`);
           } else {
             setStatus("Received response but no predictions found");
             console.error("Invalid response format:", data);
@@ -980,7 +980,6 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
               ? [
                   { label: "COVID-19", color: "#FF4D4D" },
                   { label: "Tuberculosis", color: "#FF8A3D" },
-                  { label: "Pneumonia", color: "#C084FC" },
                   { label: "Bronchitis", color: "#FFB82F" },
                   { label: "Asthma", color: "#FDE047" },
                   { label: "Cold Cough", color: "#87CEEB" },
@@ -1007,12 +1006,12 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                     );
                   })
               : [
-                  { label: "Healthy", value: 0.21, color: "#00FF94" },
-                  { label: "Cold Cough", value: 0.16, color: "#87CEEB" },
-                  { label: "COVID-19", value: 0.15, color: "#FF4D4D" },
-                  { label: "Tuberculosis", value: 0.16, color: "#FF8A3D" },
-                  { label: "Bronchitis", value: 0.16, color: "#FFB82F" },
-                  { label: "Asthma", value: 0.16, color: "#FDE047" },
+                  { label: "Healthy", value: 0.2, color: "#00FF94" },
+                  { label: "Cold Cough", value: 0.17, color: "#87CEEB" },
+                  { label: "COVID-19", value: 0.17, color: "#FF4D4D" },
+                  { label: "Tuberculosis", value: 0.17, color: "#FF8A3D" },
+                  { label: "Bronchitis", value: 0.17, color: "#FFB82F" },
+                  { label: "Asthma", value: 0.17, color: "#FDE047" },
                 ].map((item) => (
                   <div key={item.label} className="space-y-2">
                     <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">

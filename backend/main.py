@@ -106,7 +106,7 @@ def extract_labels_from_dataset(dataset):
 
 
 def compute_class_weights(labels, num_classes=NUM_CLASSES):
-    """Compute inverse-frequency class weights for CrossEntropyLoss."""
+    """Compute stable effective-number class weights for imbalanced learning."""
     if not labels:
         return torch.ones(num_classes, dtype=torch.float32)
 
@@ -114,12 +114,32 @@ def compute_class_weights(labels, num_classes=NUM_CLASSES):
     nonzero = counts > 0
     weights = np.zeros(num_classes, dtype=np.float32)
 
-    # Balanced weighting: N / (K * count_c), applied only to observed classes.
-    observed_classes = max(1, int(nonzero.sum()))
-    total_observed_samples = counts[nonzero].sum()
-    weights[nonzero] = total_observed_samples / (observed_classes * counts[nonzero])
+    # Class-balanced weighting from effective number of samples.
+    beta = 0.999
+    effective_num = 1.0 - np.power(beta, counts[nonzero])
+    weights_nonzero = (1.0 - beta) / np.maximum(effective_num, 1e-8)
+
+    # Normalize observed-class weights to mean 1.0 and clamp extremes.
+    weights_nonzero = weights_nonzero / np.mean(weights_nonzero)
+    weights_nonzero = np.clip(weights_nonzero, 0.25, 6.0)
+    weights[nonzero] = weights_nonzero
 
     return torch.tensor(weights, dtype=torch.float32)
+
+
+class FocalLoss(nn.Module):
+    """Multi-class focal loss with optional class weighting."""
+
+    def __init__(self, weight=None, gamma=2.0):
+        super().__init__()
+        self.weight = weight
+        self.gamma = gamma
+
+    def forward(self, logits, targets):
+        ce = nn.functional.cross_entropy(logits, targets, reduction="none", weight=self.weight)
+        pt = torch.exp(-ce)
+        focal = ((1 - pt) ** self.gamma) * ce
+        return focal.mean()
 
 
 class CoughAudioDataset(Dataset):
@@ -435,7 +455,7 @@ class CoughClassifierTrainer:
 
         train_labels = extract_labels_from_dataset(train_loader.dataset)
         self.class_weights = compute_class_weights(train_labels, NUM_CLASSES).to(self.device)
-        self.criterion = nn.CrossEntropyLoss(weight=self.class_weights)
+        self.criterion = FocalLoss(weight=self.class_weights, gamma=2.0)
 
         print("Class counts (train split):")
         counts = np.bincount(train_labels, minlength=NUM_CLASSES)
