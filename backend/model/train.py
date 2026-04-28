@@ -6,8 +6,16 @@ This script handles data loading, model training, and checkpoint management.
 import torch
 import argparse
 from pathlib import Path
-from torch.utils.data import DataLoader, random_split
-from backend.main import CoughClassifier, CoughClassifierTrainer, CoughAudioDataset, NUM_CLASSES
+from torch.utils.data import DataLoader, WeightedRandomSampler, Subset
+from sklearn.model_selection import train_test_split
+from backend.main import (
+    CoughClassifier,
+    CoughClassifierTrainer,
+    CoughAudioDataset,
+    NUM_CLASSES,
+    compute_class_weights,
+    extract_labels_from_dataset,
+)
 
 
 def train_model(
@@ -17,7 +25,7 @@ def train_model(
     learning_rate=0.001,
     train_split=0.8,
     output_model="cough_classifier.pt",
-    max_samples=200
+    max_samples=None
 ):
     """
     Train the cough classifier model.
@@ -57,16 +65,43 @@ def train_model(
         print("Error: No audio files found in the directory!")
         return
     
-    # Split into train and validation
-    train_size = int(train_split * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    # Split into train and validation with stratification when possible.
+    all_labels = extract_labels_from_dataset(dataset)
+    all_indices = list(range(len(dataset)))
+
+    try:
+        train_indices, val_indices = train_test_split(
+            all_indices,
+            train_size=train_split,
+            random_state=42,
+            shuffle=True,
+            stratify=all_labels,
+        )
+        train_dataset = Subset(dataset, train_indices)
+        val_dataset = Subset(dataset, val_indices)
+    except ValueError:
+        # Fallback when stratification is not feasible (e.g., extremely tiny classes).
+        split_idx = int(train_split * len(all_indices))
+        rng = torch.Generator().manual_seed(42)
+        perm = torch.randperm(len(all_indices), generator=rng).tolist()
+        train_dataset = Subset(dataset, perm[:split_idx])
+        val_dataset = Subset(dataset, perm[split_idx:])
     
-    print(f"Training samples: {train_size}")
-    print(f"Validation samples: {val_size}")
+    print(f"Training samples: {len(train_dataset)}")
+    print(f"Validation samples: {len(val_dataset)}")
     
+    # Create a balanced sampler for the training split.
+    train_labels = extract_labels_from_dataset(train_dataset)
+    class_weights = compute_class_weights(train_labels, NUM_CLASSES)
+    sample_weights = torch.tensor([class_weights[label].item() for label in train_labels], dtype=torch.double)
+    train_sampler = WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=len(sample_weights),
+        replacement=True,
+    )
+
     # Create dataloaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
     
     # Initialize model and trainer
@@ -127,8 +162,8 @@ def main():
     parser.add_argument(
         "--max-samples",
         type=int,
-        default=200,
-        help="Maximum number of samples to use for training (default: 200)"
+        default=0,
+        help="Maximum number of samples to use for training (default: 0, meaning all samples)"
     )
     
     args = parser.parse_args()
@@ -140,7 +175,7 @@ def main():
         learning_rate=args.learning_rate,
         train_split=args.train_split,
         output_model=args.output,
-        max_samples=args.max_samples
+        max_samples=args.max_samples if args.max_samples > 0 else None
     )
 
 

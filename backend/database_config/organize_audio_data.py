@@ -19,7 +19,7 @@ CATEGORY_MAPPINGS = {
     'Whooping Cough': ['Whooping Cough', 'Pertussis'],
 }
 
-AUDIO_EXTENSIONS = {'.wav', '.mp3', '.flac', '.ogg', '.m4a', '.webm'}
+AUDIO_EXTENSIONS = {'.wav'}
 KAGGLE_CACHE = Path.home() / '.cache' / 'kagglehub' / 'datasets'
 OUTPUT_DIR = Path('./audio_data')
 

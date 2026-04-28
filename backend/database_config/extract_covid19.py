@@ -15,7 +15,7 @@ COVID19_DATASET_PATH = CACHE_BASE / 'andrewmvd' / 'covid19-cough-audio-classific
 METADATA_CSV = COVID19_DATASET_PATH / 'metadata_compiled.csv'
 OUTPUT_DIR = Path('./audio_data')
 
-AUDIO_EXTENSIONS = {'.webm', '.ogg', '.wav', '.mp3', '.m4a'}
+AUDIO_EXTENSIONS = {'.wav'}
 
 def load_metadata():
     """Load metadata from the CSV file."""

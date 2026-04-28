@@ -30,12 +30,15 @@ class CoughInference:
         
         self.model = CoughClassifier(num_classes=NUM_CLASSES)
         self.trainer = CoughClassifierTrainer(self.model, device=self.device)
+        self.model_path = Path(model_path)
+        self.model_loaded = False
         
-        if Path(model_path).exists():
-            self.trainer.load_model(model_path)
-            print(f"Model loaded from {model_path}")
+        if self.model_path.exists():
+            self.trainer.load_model(str(self.model_path))
+            self.model_loaded = True
+            print(f"Model loaded from {self.model_path}")
         else:
-            print(f"Warning: Model file {model_path} not found. Using untrained model.")
+            print(f"Warning: Model file {self.model_path} not found. Inference will use mock mode in the API.")
     
     def classify_audio(self, audio_path):
         """
