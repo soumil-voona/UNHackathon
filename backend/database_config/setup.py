@@ -14,6 +14,11 @@ import subprocess
 import platform
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REQUIREMENTS_FILE = REPO_ROOT / "documentation" / "requirements.txt"
+DATA_DIR = REPO_ROOT / "audio_data"
+
+
 def print_header(text):
     """Print a formatted header."""
     print("\n" + "="*60)
@@ -55,16 +60,14 @@ def install_dependencies():
     """Install required dependencies."""
     print_step(3, "Installing dependencies...")
     
-    requirements_file = "requirements.txt"
-    
-    if not Path(requirements_file).exists():
-        print(f"❌ {requirements_file} not found")
+    if not REQUIREMENTS_FILE.exists():
+        print(f"❌ {REQUIREMENTS_FILE.relative_to(REPO_ROOT)} not found")
         return False
     
     try:
-        print("Installing packages from requirements.txt...")
+        print(f"Installing packages from {REQUIREMENTS_FILE.relative_to(REPO_ROOT)}...")
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-r", requirements_file],
+            [sys.executable, "-m", "pip", "install", "-r", str(REQUIREMENTS_FILE)],
             check=True
         )
         print("✓ Dependencies installed successfully")
@@ -78,9 +81,12 @@ def create_data_directories():
     """Create the audio_data directory structure."""
     print_step(4, "Creating data directories...")
     
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+
     from backend.database_config.config import DISEASE_CLASSES
     
-    data_dir = Path("audio_data")
+    data_dir = DATA_DIR
     data_dir.mkdir(exist_ok=True)
     
     for disease_name in DISEASE_CLASSES.values():
@@ -143,9 +149,9 @@ def print_completion_guide():
     print("   - Recommended: 100+ samples per class\n")
     
     print("2. Train the model:")
-    print("   python train.py")
+    print("   python -m backend.model.train --audio-dir audio_data")
     print("   # or with custom parameters:")
-    print("   python train.py --epochs 50 --batch-size 16\n")
+    print("   python -m backend.model.train --audio-dir audio_data --epochs 50 --batch-size 16\n")
     
     print("3. Make predictions:")
     print("   python inference.py <audio_file.wav>\n")
@@ -165,6 +171,9 @@ def print_completion_guide():
 def main():
     """Main setup function."""
     print_header("Cough Classifier - Setup")
+
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
     
     try:
         check_python_version()

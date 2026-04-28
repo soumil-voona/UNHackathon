@@ -1,0 +1,282 @@
+[
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1658817822380-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9616746306419373,
+    "all_probabilities": {
+      "Healthy": 0.03574426472187042,
+      "Cold Cough": 9.3426278908737e-05,
+      "COVID-19": 1.568114385008812e-05,
+      "Asthma": 0.0024579819291830063,
+      "Bronchitis": 0.9616746306419373,
+      "Tuberculosis": 1.033338594425004e-05,
+      "Pneumonia": 3.6508688481262652e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1649242651955-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9695613384246826,
+    "all_probabilities": {
+      "Healthy": 0.028712047263979912,
+      "Cold Cough": 5.2999235776951537e-05,
+      "COVID-19": 8.074804100033361e-06,
+      "Asthma": 0.00165852764621377,
+      "Bronchitis": 0.9695613384246826,
+      "Tuberculosis": 5.162091838428751e-06,
+      "Pneumonia": 1.7188840502058156e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1649055427113-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9706735014915466,
+    "all_probabilities": {
+      "Healthy": 0.027702922001481056,
+      "Cold Cough": 4.8607664211886004e-05,
+      "COVID-19": 7.310983619390754e-06,
+      "Asthma": 0.0015614930307492614,
+      "Bronchitis": 0.9706735014915466,
+      "Tuberculosis": 4.657703357224818e-06,
+      "Pneumonia": 1.5366201751021435e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1635929018848-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9709100127220154,
+    "all_probabilities": {
+      "Healthy": 0.02749183028936386,
+      "Cold Cough": 4.751706728711724e-05,
+      "COVID-19": 7.113378160283901e-06,
+      "Asthma": 0.0015375070506706834,
+      "Bronchitis": 0.9709100127220154,
+      "Tuberculosis": 4.529807483777404e-06,
+      "Pneumonia": 1.4883841004120768e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1640231122594-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9674620628356934,
+    "all_probabilities": {
+      "Healthy": 0.030607469379901886,
+      "Cold Cough": 6.170875712996349e-05,
+      "COVID-19": 9.613434485800099e-06,
+      "Asthma": 0.0018508683424443007,
+      "Bronchitis": 0.9674620628356934,
+      "Tuberculosis": 6.1856917454861104e-06,
+      "Pneumonia": 2.097440301440656e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1639973833675-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9572387933731079,
+    "all_probabilities": {
+      "Healthy": 0.03969845175743103,
+      "Cold Cough": 0.00011390865256544203,
+      "COVID-19": 1.941351729328744e-05,
+      "Asthma": 0.0029117611702531576,
+      "Bronchitis": 0.9572387933731079,
+      "Tuberculosis": 1.2919937034894247e-05,
+      "Pneumonia": 4.721746790892212e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1634202969981-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.967126190662384,
+    "all_probabilities": {
+      "Healthy": 0.03091343492269516,
+      "Cold Cough": 6.272584869293496e-05,
+      "COVID-19": 9.771567420102656e-06,
+      "Asthma": 0.0018795400392264128,
+      "Bronchitis": 0.967126190662384,
+      "Tuberculosis": 6.289354132604785e-06,
+      "Pneumonia": 2.141057620974607e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1652337414428-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9711877703666687,
+    "all_probabilities": {
+      "Healthy": 0.027234021574258804,
+      "Cold Cough": 4.703824015450664e-05,
+      "COVID-19": 7.053284207358956e-06,
+      "Asthma": 0.0015181271592155099,
+      "Bronchitis": 0.9711877703666687,
+      "Tuberculosis": 4.487493697524769e-06,
+      "Pneumonia": 1.4716079022036865e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1647257732510-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9670764803886414,
+    "all_probabilities": {
+      "Healthy": 0.030958067625761032,
+      "Cold Cough": 6.298349762801081e-05,
+      "COVID-19": 9.835068340180442e-06,
+      "Asthma": 0.0018841256387531757,
+      "Bronchitis": 0.9670764803886414,
+      "Tuberculosis": 6.333414148684824e-06,
+      "Pneumonia": 2.1566856958088465e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1633353592347-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9697794914245605,
+    "all_probabilities": {
+      "Healthy": 0.028520001098513603,
+      "Cold Cough": 5.1409981097094715e-05,
+      "COVID-19": 7.776519851177e-06,
+      "Asthma": 0.001634670072235167,
+      "Bronchitis": 0.9697794914245605,
+      "Tuberculosis": 4.967114819010021e-06,
+      "Pneumonia": 1.6553819932596525e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1645619565569-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9669317007064819,
+    "all_probabilities": {
+      "Healthy": 0.031082546338438988,
+      "Cold Cough": 6.42099985270761e-05,
+      "COVID-19": 1.0058520274469629e-05,
+      "Asthma": 0.0019029484828934073,
+      "Bronchitis": 0.9669317007064819,
+      "Tuberculosis": 6.481825948867481e-06,
+      "Pneumonia": 2.207769057349651e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1646994732739-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9703899621963501,
+    "all_probabilities": {
+      "Healthy": 0.027969839051365852,
+      "Cold Cough": 4.8557238187640905e-05,
+      "COVID-19": 7.258252480824012e-06,
+      "Asthma": 0.0015782596310600638,
+      "Bronchitis": 0.9703899621963501,
+      "Tuberculosis": 4.620715117198415e-06,
+      "Pneumonia": 1.5321726323236362e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1641884916558-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9622610807418823,
+    "all_probabilities": {
+      "Healthy": 0.035289451479911804,
+      "Cold Cough": 8.339850319316611e-05,
+      "COVID-19": 1.3477329957822803e-05,
+      "Asthma": 0.002340732840821147,
+      "Bronchitis": 0.9622610807418823,
+      "Tuberculosis": 8.80621428223094e-06,
+      "Pneumonia": 3.1164142910711234e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1652750733385-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9689415693283081,
+    "all_probabilities": {
+      "Healthy": 0.029276205226778984,
+      "Cold Cough": 5.508198228199035e-05,
+      "COVID-19": 8.4238627096056e-06,
+      "Asthma": 0.0017114165239036083,
+      "Bronchitis": 0.9689415693283081,
+      "Tuberculosis": 5.396374490374001e-06,
+      "Pneumonia": 1.8078366110785282e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1627031605131-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9643855094909668,
+    "all_probabilities": {
+      "Healthy": 0.03339613601565361,
+      "Cold Cough": 7.33855995349586e-05,
+      "COVID-19": 1.1656867172860075e-05,
+      "Asthma": 0.002123116282746196,
+      "Bronchitis": 0.9643855094909668,
+      "Tuberculosis": 7.5607777034747414e-06,
+      "Pneumonia": 2.633219992276281e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1646191261664-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9704205393791199,
+    "all_probabilities": {
+      "Healthy": 0.027935346588492393,
+      "Cold Cough": 4.9437236157245934e-05,
+      "COVID-19": 7.446871222782647e-06,
+      "Asthma": 0.0015808341559022665,
+      "Bronchitis": 0.9704205393791199,
+      "Tuberculosis": 4.747063030663412e-06,
+      "Pneumonia": 1.5679821672165417e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1656574023838-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9688988327980042,
+    "all_probabilities": {
+      "Healthy": 0.029316235333681107,
+      "Cold Cough": 5.533627700060606e-05,
+      "COVID-19": 8.483276360493619e-06,
+      "Asthma": 0.0017138978000730276,
+      "Bronchitis": 0.9688988327980042,
+      "Tuberculosis": 5.434554623207077e-06,
+      "Pneumonia": 1.8206482081950526e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1651745220785-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9630724787712097,
+    "all_probabilities": {
+      "Healthy": 0.03455634415149689,
+      "Cold Cough": 8.086327579803765e-05,
+      "COVID-19": 1.3045357263763435e-05,
+      "Asthma": 0.0022656486835330725,
+      "Bronchitis": 0.9630724787712097,
+      "Tuberculosis": 8.490103027725127e-06,
+      "Pneumonia": 2.988144387927605e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1640576067345-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9688296914100647,
+    "all_probabilities": {
+      "Healthy": 0.02937356010079384,
+      "Cold Cough": 5.588577550952323e-05,
+      "COVID-19": 8.583849194110371e-06,
+      "Asthma": 0.0017249115044251084,
+      "Bronchitis": 0.9688296914100647,
+      "Tuberculosis": 5.5042828535079025e-06,
+      "Pneumonia": 1.843470045059803e-06
+    }
+  },
+  {
+    "audio_file": "test_tb_audio_fresh/Tuberculosis/raw_data/solicited_data/1658842563607-recording-1.wav",
+    "predicted_disease": "Bronchitis",
+    "confidence": 0.9646068811416626,
+    "all_probabilities": {
+      "Healthy": 0.03320631384849548,
+      "Cold Cough": 7.075759640429169e-05,
+      "COVID-19": 1.1117172107333317e-05,
+      "Asthma": 0.002095264382660389,
+      "Bronchitis": 0.9646068811416626,
+      "Tuberculosis": 7.21029164196807e-06,
+      "Pneumonia": 2.511410912120482e-06
+    }
+  }
+]

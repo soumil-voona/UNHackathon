@@ -4,6 +4,7 @@ import torch.optim as optim
 import torchaudio
 import torchaudio.transforms as T
 import numpy as np
+from tqdm.auto import tqdm
 from torch.utils.data import Dataset, DataLoader, Subset
 import os
 from pathlib import Path
@@ -36,6 +37,60 @@ N_MELS = 64
 N_FFT = 400
 HOP_LENGTH = 160
 TRAIN_AUDIO_EXTENSIONS = ("*.wav", "*.webm")
+
+
+class SpecAugment:
+    """Apply SpecAugment to mel-spectrograms (time and frequency masking)."""
+    def __init__(self, freq_mask_param=30, time_mask_param=40):
+        self.freq_mask = T.FrequencyMasking(freq_mask_param=freq_mask_param)
+        self.time_mask = T.TimeMasking(time_mask_param=time_mask_param)
+    
+    def __call__(self, mel_spec):
+        mel_spec = self.freq_mask(mel_spec)
+        mel_spec = self.time_mask(mel_spec)
+        return mel_spec
+
+
+class WaveformAugment:
+    """Apply augmentations to raw waveform before mel-spectrogram conversion."""
+    def __init__(self, sample_rate=16000):
+        self.sample_rate = sample_rate
+    
+    def add_noise(self, waveform, noise_factor=0.005):
+        """Add Gaussian noise."""
+        noise = torch.randn_like(waveform) * noise_factor
+        return waveform + noise
+    
+    def pitch_shift(self, waveform, sample_rate, n_steps=2):
+        """Pitch shift using librosa."""
+        try:
+            audio_np = waveform.squeeze().numpy()
+            shifted = librosa.effects.pitch_shift(audio_np, sr=sample_rate, n_steps=n_steps)
+            return torch.FloatTensor(shifted).unsqueeze(0)
+        except Exception:
+            return waveform
+    
+    def time_shift(self, waveform, shift_max=0.1):
+        """Randomly shift audio in time."""
+        max_shift = int(waveform.shape[1] * shift_max)
+        shift = random.randint(-max_shift, max_shift)
+        if shift > 0:
+            waveform = torch.cat([torch.zeros(1, shift), waveform[:, :-shift]], dim=1)
+        elif shift < 0:
+            waveform = torch.cat([waveform[:, -shift:], torch.zeros(1, -shift)], dim=1)
+        return waveform
+    
+    def __call__(self, waveform):
+        """Apply random augmentations."""
+        # Randomly apply each augmentation with 50% probability
+        if random.random() > 0.5:
+            waveform = self.add_noise(waveform)
+        if random.random() > 0.5:
+            waveform = self.time_shift(waveform)
+        if random.random() > 0.5:
+            n_steps = random.choice([-2, -1, 1, 2])
+            waveform = self.pitch_shift(waveform, self.sample_rate, n_steps=n_steps)
+        return waveform
 
 
 def resolve_ffmpeg_binary():
@@ -147,7 +202,7 @@ class CoughAudioDataset(Dataset):
     Custom Dataset for loading and processing cough audio files.
     Expects audio files organized in folders by disease class.
     """
-    def __init__(self, audio_dir, sample_rate=SAMPLE_RATE, n_mels=N_MELS, max_samples=None):
+    def __init__(self, audio_dir, sample_rate=SAMPLE_RATE, n_mels=N_MELS, max_samples=None, max_samples_per_class=None, augment=False):
         self.audio_dir = Path(audio_dir)
         self.sample_rate = sample_rate
         self.n_mels = n_mels
@@ -157,6 +212,10 @@ class CoughAudioDataset(Dataset):
         self.converted_cache_dir = self.audio_dir / ".converted_webm"
         self.converted_cache_dir.mkdir(exist_ok=True)
         self._ffmpeg_warning_shown = False
+        self.augment = augment
+        if augment:
+            self.waveform_augment = WaveformAugment(sample_rate)
+            self.spec_augment = SpecAugment()
         
         # Load audio file paths and labels using stable training formats.
         for class_idx, class_name in DISEASE_CLASSES.items():
@@ -165,6 +224,9 @@ class CoughAudioDataset(Dataset):
                 audio_files = []
                 for pattern in TRAIN_AUDIO_EXTENSIONS:
                     audio_files.extend(class_dir.glob(pattern))
+                if max_samples_per_class and max_samples_per_class > 0 and len(audio_files) > max_samples_per_class:
+                    random.Random(42 + class_idx).shuffle(audio_files)
+                    audio_files = audio_files[:max_samples_per_class]
                 for audio_file in audio_files:
                     prepared_file = self._prepare_training_file(audio_file)
                     if prepared_file is not None:
@@ -278,6 +340,9 @@ class CoughAudioDataset(Dataset):
                 return torch.zeros(1, self.n_mels, self.fallback_time_bins), label
 
         try:
+            # Apply augmentation to raw waveform during training
+            if self.augment:
+                waveform = self.waveform_augment(waveform)
             
             # Convert stereo/multi-channel to mono for consistent tensor shapes.
             if waveform.shape[0] > 1:
@@ -298,6 +363,10 @@ class CoughAudioDataset(Dataset):
             mel_spec = self.mel_transform(waveform)
             mel_spec = self.amplitude_to_db(mel_spec)
             
+            # Apply spectrogram augmentation (time/frequency masking) during training
+            if self.augment:
+                mel_spec = self.spec_augment(mel_spec)
+            
             # Normalize
             mel_spec = (mel_spec - mel_spec.mean()) / (mel_spec.std() + 1e-5)
             
@@ -316,32 +385,28 @@ class CoughClassifier(nn.Module):
     def __init__(self, num_classes=NUM_CLASSES):
         super(CoughClassifier, self).__init__()
         
-        # Convolutional blocks
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
-        self.bn1 = nn.BatchNorm2d(32)
+        # Convolutional blocks - reduced complexity to prevent overfitting
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1)
+        self.bn1 = nn.BatchNorm2d(16)
         self.pool1 = nn.MaxPool2d(2, 2)
         
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
-        self.bn2 = nn.BatchNorm2d(64)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
+        self.bn2 = nn.BatchNorm2d(32)
         self.pool2 = nn.MaxPool2d(2, 2)
         
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
-        self.bn3 = nn.BatchNorm2d(128)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.bn3 = nn.BatchNorm2d(64)
         self.pool3 = nn.MaxPool2d(2, 2)
-        
-        self.conv4 = nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1)
-        self.bn4 = nn.BatchNorm2d(256)
-        self.pool4 = nn.MaxPool2d(2, 2)
         
         # Adaptive average pooling for variable input sizes
         self.adaptive_pool = nn.AdaptiveAvgPool2d((1, 1))
         
-        # Fully connected layers
-        self.fc1 = nn.Linear(256, 128)
+        # Fully connected layers - more regularization
+        self.fc1 = nn.Linear(64, 64)
         self.dropout1 = nn.Dropout(0.5)
-        self.fc2 = nn.Linear(128, 64)
-        self.dropout2 = nn.Dropout(0.3)
-        self.fc3 = nn.Linear(64, num_classes)
+        self.fc2 = nn.Linear(64, 32)
+        self.dropout2 = nn.Dropout(0.4)
+        self.fc3 = nn.Linear(32, num_classes)
         
         self.relu = nn.ReLU()
     
@@ -355,9 +420,6 @@ class CoughClassifier(nn.Module):
         
         x = self.relu(self.bn3(self.conv3(x)))
         x = self.pool3(x)
-        
-        x = self.relu(self.bn4(self.conv4(x)))
-        x = self.pool4(x)
         
         # Adaptive pooling
         x = self.adaptive_pool(x)
@@ -383,8 +445,9 @@ class CoughClassifierTrainer:
         self.device = device
         self.optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         self.criterion = nn.CrossEntropyLoss()
+        self.val_criterion = nn.CrossEntropyLoss()
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.5, patience=5, verbose=True
+            self.optimizer, mode='min', factor=0.5, patience=5
         )
         self.class_weights = None
         
@@ -403,8 +466,10 @@ class CoughClassifierTrainer:
         total_loss = 0.0
         correct = 0
         total = 0
+        batch_count = 0
         
-        for spectrograms, labels in train_loader:
+        progress = tqdm(train_loader, desc="Train", leave=False)
+        for spectrograms, labels in progress:
             spectrograms = spectrograms.to(self.device)
             labels = labels.to(self.device)
             
@@ -418,6 +483,11 @@ class CoughClassifierTrainer:
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+            batch_count += 1
+            progress.set_postfix(
+                loss=f"{total_loss / batch_count:.4f}",
+                acc=f"{100 * correct / max(1, total):.2f}%",
+            )
         
         avg_loss = total_loss / len(train_loader)
         accuracy = 100 * correct / total
@@ -429,25 +499,32 @@ class CoughClassifierTrainer:
         total_loss = 0.0
         correct = 0
         total = 0
+        batch_count = 0
         
         with torch.no_grad():
-            for spectrograms, labels in val_loader:
+            progress = tqdm(val_loader, desc="Val", leave=False)
+            for spectrograms, labels in progress:
                 spectrograms = spectrograms.to(self.device)
                 labels = labels.to(self.device)
                 
                 outputs = self.model(spectrograms)
-                loss = self.criterion(outputs, labels)
+                loss = self.val_criterion(outputs, labels)
                 
                 total_loss += loss.item()
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+                batch_count += 1
+                progress.set_postfix(
+                    loss=f"{total_loss / batch_count:.4f}",
+                    acc=f"{100 * correct / max(1, total):.2f}%",
+                )
         
         avg_loss = total_loss / len(val_loader)
         accuracy = 100 * correct / total
         return avg_loss, accuracy
     
-    def train(self, train_loader, val_loader, epochs=50):
+    def train(self, train_loader, val_loader, epochs=50, best_model_path="best_cough_classifier.pt"):
         """Train the model for multiple epochs"""
         best_val_loss = float('inf')
         patience = 10
@@ -479,7 +556,8 @@ class CoughClassifierTrainer:
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 patience_counter = 0
-                self.save_model("best_cough_classifier.pt")
+                if best_model_path:
+                    self.save_model(best_model_path)
             else:
                 patience_counter += 1
                 if patience_counter >= patience:

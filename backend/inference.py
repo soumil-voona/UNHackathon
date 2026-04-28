@@ -61,12 +61,13 @@ class CoughInference:
             }
         }
     
-    def classify_multiple(self, audio_directory):
+    def classify_multiple(self, audio_directory, max_files=None):
         """
         Classify all audio files in a directory.
         
         Args:
             audio_directory: Path to directory containing audio files
+            max_files: Optional cap on how many files to classify
             
         Returns:
             list: Classification results for all files
@@ -76,6 +77,8 @@ class CoughInference:
         
         # Find all audio files
         audio_files = list(audio_dir.glob("**/*.wav")) + list(audio_dir.glob("**/*.mp3"))
+        if max_files is not None and max_files > 0:
+            audio_files = audio_files[:max_files]
         
         print(f"Found {len(audio_files)} audio files")
         

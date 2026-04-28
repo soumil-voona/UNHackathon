@@ -7,3 +7,10 @@ __pycache__/
 .DS_Store
 .manus-logs/
 .git/
+respiratory_data_raw/
+test_tb_audio_fresh/
+test_tb_audio/*
+audio_data/
+audio_data_balanced/
+tb-audio.zip
+
