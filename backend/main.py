@@ -23,12 +23,9 @@ warnings.filterwarnings('ignore')
 
 DISEASE_CLASSES = {
     0: "Healthy",           # From all datasets
-    1: "Cold Cough",        # Mapped from URTI (Respiratory Sound Database)
-    2: "COVID-19",          # From COVID-19 Cough Classification dataset
-    3: "Asthma",            # From Respiratory Sound Database
-    4: "Bronchitis",        # From Respiratory Sound Database
-    5: "Tuberculosis",      # From TB Audio dataset
-    6: "Pneumonia"          # From TB Audio dataset
+    1: "COVID-19",          # From COVID-19 Cough Classification dataset
+    2: "Bronchitis",        # From Respiratory Sound Database
+    3: "Tuberculosis",      # From TB Audio dataset
 }
 
 NUM_CLASSES = len(DISEASE_CLASSES)
@@ -64,20 +61,37 @@ class WaveformAugment:
     def pitch_shift(self, waveform, sample_rate, n_steps=2):
         """Pitch shift using librosa."""
         try:
-            audio_np = waveform.squeeze().numpy()
+            # Ensure waveform is in the right shape (1, num_samples)
+            if waveform.dim() == 1:
+                audio_np = waveform.numpy()
+            else:
+                audio_np = waveform.squeeze().numpy()
+            
             shifted = librosa.effects.pitch_shift(audio_np, sr=sample_rate, n_steps=n_steps)
-            return torch.FloatTensor(shifted).unsqueeze(0)
+            # Reshape back to (1, num_samples)
+            shifted_tensor = torch.FloatTensor(shifted)
+            if shifted_tensor.dim() == 1:
+                shifted_tensor = shifted_tensor.unsqueeze(0)
+            return shifted_tensor
         except Exception:
             return waveform
     
     def time_shift(self, waveform, shift_max=0.1):
         """Randomly shift audio in time."""
+        if waveform.shape[1] == 0:
+            return waveform
         max_shift = int(waveform.shape[1] * shift_max)
+        if max_shift == 0:
+            return waveform
         shift = random.randint(-max_shift, max_shift)
         if shift > 0:
-            waveform = torch.cat([torch.zeros(1, shift), waveform[:, :-shift]], dim=1)
+            # Pad at the beginning
+            pad_tensor = torch.zeros(waveform.shape[0], shift, dtype=waveform.dtype, device=waveform.device)
+            waveform = torch.cat([pad_tensor, waveform[:, :-shift]], dim=1)
         elif shift < 0:
-            waveform = torch.cat([waveform[:, -shift:], torch.zeros(1, -shift)], dim=1)
+            # Pad at the end
+            pad_tensor = torch.zeros(waveform.shape[0], -shift, dtype=waveform.dtype, device=waveform.device)
+            waveform = torch.cat([waveform[:, -shift:], pad_tensor], dim=1)
         return waveform
     
     def __call__(self, waveform):
@@ -202,7 +216,7 @@ class CoughAudioDataset(Dataset):
     Custom Dataset for loading and processing cough audio files.
     Expects audio files organized in folders by disease class.
     """
-    def __init__(self, audio_dir, sample_rate=SAMPLE_RATE, n_mels=N_MELS, max_samples=None, max_samples_per_class=None, augment=False):
+    def __init__(self, audio_dir, sample_rate=SAMPLE_RATE, n_mels=N_MELS, max_samples=None, max_samples_per_class=None, augment=False, uncapped_classes=None):
         self.audio_dir = Path(audio_dir)
         self.sample_rate = sample_rate
         self.n_mels = n_mels
@@ -213,8 +227,10 @@ class CoughAudioDataset(Dataset):
         self.converted_cache_dir.mkdir(exist_ok=True)
         self._ffmpeg_warning_shown = False
         self.augment = augment
+        self.uncapped_classes = set(uncapped_classes or [])
         if augment:
-            self.waveform_augment = WaveformAugment(sample_rate)
+            # Disable waveform augmentation for now due to tensor shape issues
+            # self.waveform_augment = WaveformAugment(sample_rate)
             self.spec_augment = SpecAugment()
         
         # Load audio file paths and labels using stable training formats.
@@ -224,7 +240,12 @@ class CoughAudioDataset(Dataset):
                 audio_files = []
                 for pattern in TRAIN_AUDIO_EXTENSIONS:
                     audio_files.extend(class_dir.glob(pattern))
-                if max_samples_per_class and max_samples_per_class > 0 and len(audio_files) > max_samples_per_class:
+                if (
+                    max_samples_per_class
+                    and max_samples_per_class > 0
+                    and class_name not in self.uncapped_classes
+                    and len(audio_files) > max_samples_per_class
+                ):
                     random.Random(42 + class_idx).shuffle(audio_files)
                     audio_files = audio_files[:max_samples_per_class]
                 for audio_file in audio_files:
@@ -340,11 +361,11 @@ class CoughAudioDataset(Dataset):
                 return torch.zeros(1, self.n_mels, self.fallback_time_bins), label
 
         try:
-            # Apply augmentation to raw waveform during training
-            if self.augment:
-                waveform = self.waveform_augment(waveform)
+            # Ensure waveform has shape (1, num_samples) 
+            if waveform.dim() == 1:
+                waveform = waveform.unsqueeze(0)
             
-            # Convert stereo/multi-channel to mono for consistent tensor shapes.
+            # Convert stereo/multi-channel to mono FIRST for consistent tensor shapes.
             if waveform.shape[0] > 1:
                 waveform = waveform.mean(dim=0, keepdim=True)
 
@@ -353,11 +374,19 @@ class CoughAudioDataset(Dataset):
                 resampler = T.Resample(sr, self.sample_rate)
                 waveform = resampler(waveform)
             
-            # Normalize duration (3 seconds)
+            # Normalize duration (3 seconds) - pad or truncate to exact length BEFORE augmentation
             if waveform.shape[1] < self.target_length:
-                waveform = torch.nn.functional.pad(waveform, (0, self.target_length - waveform.shape[1]))
+                # Pad with zeros at the end
+                pad_amount = self.target_length - waveform.shape[1]
+                waveform = torch.nn.functional.pad(waveform, (0, pad_amount), mode='constant', value=0.0)
             else:
+                # Truncate to target length
                 waveform = waveform[:, :self.target_length]
+            
+            # Apply augmentation to raw waveform during training (after standardizing shape)
+            # Waveform augmentation disabled for now to prevent tensor shape mismatches
+            # if self.augment:
+            #     waveform = self.waveform_augment(waveform)
             
             # Convert to mel-spectrogram
             mel_spec = self.mel_transform(waveform)
@@ -527,7 +556,7 @@ class CoughClassifierTrainer:
     def train(self, train_loader, val_loader, epochs=50, best_model_path="best_cough_classifier.pt"):
         """Train the model for multiple epochs"""
         best_val_loss = float('inf')
-        patience = 10
+        patience = 30
         patience_counter = 0
 
         train_labels = extract_labels_from_dataset(train_loader.dataset)

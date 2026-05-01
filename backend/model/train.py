@@ -22,7 +22,7 @@ from backend.main import (
 def train_model(
     audio_dir,
     batch_size=16,
-    epochs=50,
+    epochs=10,
     learning_rate=0.001,
     train_split=0.8,
     output_model="cough_classifier.pt",
@@ -54,11 +54,9 @@ def train_model(
         print(f"Error: Audio directory '{audio_dir}' not found!")
         print("Please create an 'audio_data' directory with subdirectories for each disease class:")
         print("  - Healthy/")
-        print("  - Cold Cough/")
         print("  - COVID-19/")
-        print("  - Asthma/")
         print("  - Bronchitis/")
-        print("  - Whooping Cough/")
+        print("  - Tuberculosis/")
         return
     
     # Setup device
@@ -194,14 +192,14 @@ def main():
     parser.add_argument(
         "--epochs",
         type=int,
-        default=10,
-        help="Number of training epochs (default: 10)"
+        default=100,
+        help="Number of training epochs (default: 100)"
     )
     parser.add_argument(
         "--learning-rate",
         type=float,
-        default=0.001,
-        help="Initial learning rate (default: 0.001)"
+        default=0.0001,
+        help="Initial learning rate (default: 0.0001)"
     )
     parser.add_argument(
         "--train-split",

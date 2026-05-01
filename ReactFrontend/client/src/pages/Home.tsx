@@ -981,8 +981,6 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                   { label: "COVID-19", color: "#FF4D4D" },
                   { label: "Tuberculosis", color: "#FF8A3D" },
                   { label: "Bronchitis", color: "#FFB82F" },
-                  { label: "Asthma", color: "#FDE047" },
-                  { label: "Cold Cough", color: "#87CEEB" },
                   { label: "Healthy", color: "#00FF94" },
                 ]
                   .map((item) => {
@@ -1006,12 +1004,10 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                     );
                   })
               : [
-                  { label: "Healthy", value: 0.2, color: "#00FF94" },
-                  { label: "Cold Cough", value: 0.17, color: "#87CEEB" },
-                  { label: "COVID-19", value: 0.17, color: "#FF4D4D" },
-                  { label: "Tuberculosis", value: 0.17, color: "#FF8A3D" },
-                  { label: "Bronchitis", value: 0.17, color: "#FFB82F" },
-                  { label: "Asthma", value: 0.17, color: "#FDE047" },
+                  { label: "Healthy", value: 0.25, color: "#00FF94" },
+                  { label: "COVID-19", value: 0.25, color: "#FF4D4D" },
+                  { label: "Tuberculosis", value: 0.25, color: "#FF8A3D" },
+                  { label: "Bronchitis", value: 0.25, color: "#FFB82F" },
                 ].map((item) => (
                   <div key={item.label} className="space-y-2">
                     <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
@@ -1029,7 +1025,7 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
 
             {/* Dynamic escalation banner — shown when a high-risk class exceeds 50% confidence */}
             {predictions && (() => {
-              const highRisk = ["COVID-19", "Tuberculosis", "Pneumonia"];
+              const highRisk = ["COVID-19", "Tuberculosis"];
               const riskClass = highRisk.find((cls) => (predictions[cls] ?? 0) > 0.50);
               return riskClass ? (
                 <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">

@@ -27,7 +27,7 @@ AUDIO_DURATION = 3
 # ========================
 
 # Number of output classes
-NUM_CLASSES = 6
+NUM_CLASSES = 4
 
 # Initial number of convolutional filters
 INITIAL_FILTERS = 32
@@ -93,11 +93,9 @@ RECOMMENDED_SAMPLES_PER_CLASS = 100
 
 DISEASE_CLASSES = {
     0: "Healthy",
-    1: "Cold Cough",
-    2: "COVID-19",
-    3: "Asthma",
-    4: "Bronchitis",
-    5: "Whooping Cough"
+    1: "COVID-19",
+    2: "Bronchitis",
+    3: "Tuberculosis"
 }
 
 # ========================

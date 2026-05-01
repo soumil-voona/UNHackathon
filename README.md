@@ -34,12 +34,9 @@ If your Node.js install does not include Corepack yet, run `npm install -g corep
 The API currently works with these labels:
 
 - Healthy
-- Cold Cough
 - COVID-19
-- Asthma
 - Bronchitis
 - Tuberculosis
-- Pneumonia
 
 ## Fresh machine setup
 
