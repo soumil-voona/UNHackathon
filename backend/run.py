@@ -91,11 +91,14 @@ DISEASE_CLASSES = {
 # ---------------------------------------------------------------------------
 model_loaded = False
 inference = None
-# Use the latest trained model (best_cough_classifier.pt); fallback to local copy if missing
-MODEL_PATH = Path(__file__).parent.parent / "best_cough_classifier.pt"
-if not MODEL_PATH.exists():
-    # Fallback to backend/cough_classifier.pt if best model not in root
-    MODEL_PATH = Path(__file__).parent / "cough_classifier.pt"
+# Resolve model path from env, then fall back to repository defaults.
+env_model_path = os.getenv("MODEL_PATH", "").strip()
+if env_model_path:
+    MODEL_PATH = Path(env_model_path)
+else:
+    MODEL_PATH = Path(__file__).parent.parent / "best_cough_classifier.pt"
+    if not MODEL_PATH.exists():
+        MODEL_PATH = Path(__file__).parent / "cough_classifier.pt"
 
 try:
     from inference import CoughInference
