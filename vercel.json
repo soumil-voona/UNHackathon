@@ -1,0 +1,24 @@
+{
+  "buildCommand": "cd ReactFrontend && npm install && npm run build && cd ../backend && pip install -r requirements.txt",
+  "installCommand": "echo 'Dependencies will be installed during buildCommand'",
+  "outputDirectory": "ReactFrontend/dist",
+  "env": {
+    "NODE_ENV": "production",
+    "VITE_API_URL": "@vite_api_url"
+  },
+  "functions": {
+    "api/**": {
+      "runtime": "python3.11"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
