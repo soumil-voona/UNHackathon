@@ -460,22 +460,8 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
 
   return (
     <div ref={containerRef} className="absolute inset-0 overflow-hidden">
-      <style>{`
-        @keyframes lungPulse {
-          0%, 100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.08);
-          }
-        }
-        .lung-pulse {
-          animation: lungPulse 2.2s ease-in-out infinite;
-          transform-origin: center;
-        }
-      `}</style>
       <div
-        className="absolute inset-0 opacity-45 lung-pulse"
+        className="absolute inset-0 opacity-45"
         style={{
           backgroundImage: `radial-gradient(circle at center, rgba(0,229,255,0.14), transparent 36%), linear-gradient(180deg, rgba(4,12,18,0.06), rgba(4,12,18,0.85)), url(${HERO_BG})`,
           backgroundPosition: "center",
