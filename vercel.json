@@ -4,7 +4,7 @@
   "outputDirectory": "ReactFrontend/dist",
   "env": {
     "NODE_ENV": "production",
-    "VITE_API_URL": "@vite_api_url"
+    "VITE_API_URL": "/api"
   },
   "functions": {
     "api/**": {
