@@ -67,7 +67,11 @@ function encodeWavBlob(chunks: Float32Array[], sampleRate: number) {
   for (const chunk of chunks) {
     for (let index = 0; index < chunk.length; index += 1) {
       const sample = Math.max(-1, Math.min(1, chunk[index]));
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      view.setInt16(
+        offset,
+        sample < 0 ? sample * 0x8000 : sample * 0x7fff,
+        true
+      );
       offset += 2;
     }
   }
@@ -257,7 +261,12 @@ type CounterProps = {
   decimals?: number;
 };
 
-function MetricCounter({ end, prefix = "", suffix = "", decimals = 0 }: CounterProps) {
+function MetricCounter({
+  end,
+  prefix = "",
+  suffix = "",
+  decimals = 0,
+}: CounterProps) {
   const ref = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
@@ -282,7 +291,7 @@ function MetricCounter({ end, prefix = "", suffix = "", decimals = 0 }: CounterP
             onUpdate: () => {
               target.textContent = `${prefix}${value.amount.toFixed(decimals)}${suffix}`;
             },
-          },
+          }
         );
       },
     });
@@ -305,14 +314,26 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2("#040c12", 0.16);
 
-    const camera = new THREE.PerspectiveCamera(46, container.clientWidth / container.clientHeight, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(
+      46,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      100
+    );
     camera.position.set(0, 0, 10);
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: true,
+        antialias: true,
+      });
     } catch (error) {
-      console.warn("WebGL renderer initialization failed; continuing without 3D hero scene.", error);
+      console.warn(
+        "WebGL renderer initialization failed; continuing without 3D hero scene.",
+        error
+      );
       return;
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
@@ -329,11 +350,17 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
       opacity: highContrast ? 0.46 : 0.27,
     });
 
-    const leftLung = new THREE.Mesh(new THREE.SphereGeometry(1.6, 26, 26), lungMaterial.clone());
+    const leftLung = new THREE.Mesh(
+      new THREE.SphereGeometry(1.6, 26, 26),
+      lungMaterial.clone()
+    );
     leftLung.scale.set(0.92, 1.28, 0.78);
     leftLung.position.set(-1.22, -0.16, 0.05);
 
-    const rightLung = new THREE.Mesh(new THREE.SphereGeometry(1.6, 26, 26), lungMaterial.clone());
+    const rightLung = new THREE.Mesh(
+      new THREE.SphereGeometry(1.6, 26, 26),
+      lungMaterial.clone()
+    );
     rightLung.scale.set(0.92, 1.28, 0.78);
     rightLung.position.set(1.22, -0.16, 0.05);
 
@@ -344,7 +371,7 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
         wireframe: true,
         transparent: true,
         opacity: highContrast ? 0.42 : 0.22,
-      }),
+      })
     );
     trachea.position.set(0, 2.05, 0.08);
 
@@ -385,7 +412,10 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
       particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 10;
       particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 12;
     }
-    particlesGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
+    particlesGeometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(particlePositions, 3)
+    );
     const particles = new THREE.Points(
       particlesGeometry,
       new THREE.PointsMaterial({
@@ -393,7 +423,7 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
         size: 0.03,
         transparent: true,
         opacity: 0.7,
-      }),
+      })
     );
     scene.add(particles);
 
@@ -420,7 +450,8 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
             group.position.x = progress * 1.3;
             group.position.y = progress * -0.8;
             group.scale.setScalar(1 - progress * 0.22);
-            (particles.material as THREE.PointsMaterial).opacity = 0.45 + progress * 0.35;
+            (particles.material as THREE.PointsMaterial).opacity =
+              0.45 + progress * 0.35;
           },
         })
       : null;
@@ -489,9 +520,18 @@ function GeometricAvatar({ palette }: { palette: string[] }) {
           background: `radial-gradient(circle at 35% 30%, ${palette[0]}55, transparent 34%), radial-gradient(circle at 70% 65%, ${palette[1]}66, transparent 28%), linear-gradient(160deg, rgba(8,18,26,0.4), rgba(4,12,18,0.95))`,
         }}
       />
-      <div className="absolute left-3 top-4 h-8 w-8 rounded-lg border border-white/20 rotate-12" style={{ background: `${palette[0]}22` }} />
-      <div className="absolute right-4 top-8 h-10 w-10 rounded-full border border-white/15" style={{ background: `${palette[1]}28` }} />
-      <div className="absolute bottom-3 left-6 h-12 w-12 rounded-[1.2rem] border border-white/10 rotate-[28deg]" style={{ background: `${palette[0]}18` }} />
+      <div
+        className="absolute left-3 top-4 h-8 w-8 rounded-lg border border-white/20 rotate-12"
+        style={{ background: `${palette[0]}22` }}
+      />
+      <div
+        className="absolute right-4 top-8 h-10 w-10 rounded-full border border-white/15"
+        style={{ background: `${palette[1]}28` }}
+      />
+      <div
+        className="absolute bottom-3 left-6 h-12 w-12 rounded-[1.2rem] border border-white/10 rotate-[28deg]"
+        style={{ background: `${palette[0]}18` }}
+      />
       <div className="absolute inset-x-4 bottom-5 h-px bg-white/25" />
     </div>
   );
@@ -513,14 +553,18 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
   const [remaining, setRemaining] = useState(3);
   const [status, setStatus] = useState("Awaiting microphone input.");
   const [downloadUrl, setDownloadUrl] = useState("");
-  const [predictions, setPredictions] = useState<Record<string, number> | null>(null);
+  const [predictions, setPredictions] = useState<Record<string, number> | null>(
+    null
+  );
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMock, setIsMock] = useState(false);
   const [topPrediction, setTopPrediction] = useState<string | null>(null);
 
   // Backend URL — configurable via VITE_API_URL environment variable
   // Default: http://127.0.0.1:8000 (local FastAPI server)
-  const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://127.0.0.1:8000";
+  const API_BASE =
+    (import.meta.env.VITE_API_URL as string | undefined) ??
+    "http://127.0.0.1:8000";
 
   useEffect(() => {
     const waveformCanvas = waveformRef.current;
@@ -533,14 +577,32 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
 
     const resize = () => {
       const waveformRect = waveformCanvas.getBoundingClientRect();
-      waveformCanvas.width = waveformRect.width * Math.min(window.devicePixelRatio, 2);
-      waveformCanvas.height = waveformRect.height * Math.min(window.devicePixelRatio, 2);
-      waveformContext.setTransform(Math.min(window.devicePixelRatio, 2), 0, 0, Math.min(window.devicePixelRatio, 2), 0, 0);
+      waveformCanvas.width =
+        waveformRect.width * Math.min(window.devicePixelRatio, 2);
+      waveformCanvas.height =
+        waveformRect.height * Math.min(window.devicePixelRatio, 2);
+      waveformContext.setTransform(
+        Math.min(window.devicePixelRatio, 2),
+        0,
+        0,
+        Math.min(window.devicePixelRatio, 2),
+        0,
+        0
+      );
 
       const spectrogramRect = spectrogramCanvas.getBoundingClientRect();
-      spectrogramCanvas.width = spectrogramRect.width * Math.min(window.devicePixelRatio, 2);
-      spectrogramCanvas.height = spectrogramRect.height * Math.min(window.devicePixelRatio, 2);
-      spectrogramContext.setTransform(Math.min(window.devicePixelRatio, 2), 0, 0, Math.min(window.devicePixelRatio, 2), 0, 0);
+      spectrogramCanvas.width =
+        spectrogramRect.width * Math.min(window.devicePixelRatio, 2);
+      spectrogramCanvas.height =
+        spectrogramRect.height * Math.min(window.devicePixelRatio, 2);
+      spectrogramContext.setTransform(
+        Math.min(window.devicePixelRatio, 2),
+        0,
+        0,
+        Math.min(window.devicePixelRatio, 2),
+        0,
+        0
+      );
     };
 
     const drawIdle = () => {
@@ -549,7 +611,9 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
       waveformContext.clearRect(0, 0, width, height);
       waveformContext.fillStyle = "rgba(4, 12, 18, 0.9)";
       waveformContext.fillRect(0, 0, width, height);
-      waveformContext.strokeStyle = highContrast ? "rgba(122, 246, 255, 0.9)" : "rgba(0, 229, 255, 0.7)";
+      waveformContext.strokeStyle = highContrast
+        ? "rgba(122, 246, 255, 0.9)"
+        : "rgba(0, 229, 255, 0.7)";
       waveformContext.lineWidth = 2;
       waveformContext.beginPath();
       waveformContext.moveTo(0, height / 2);
@@ -590,7 +654,7 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
 
   const cleanupAudio = () => {
     stopVisuals();
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current?.getTracks().forEach(track => track.stop());
     streamRef.current = null;
     sourceRef.current?.disconnect();
     analyserRef.current?.disconnect();
@@ -702,7 +766,12 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
 
         window.clearInterval(statusInterval);
         const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(2);
-        console.log("Response status:", response.status, response.statusText, `(${elapsedSeconds}s)`);
+        console.log(
+          "Response status:",
+          response.status,
+          response.statusText,
+          `(${elapsedSeconds}s)`
+        );
 
         const data = await response.json();
         console.log("Response data:", data);
@@ -714,7 +783,9 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
             setPredictions(predDict);
             setTopPrediction(data.prediction.predicted_disease);
             setIsMock(data.prediction.mock === true);
-            const processingTime = data.processing_time ? data.processing_time.toFixed(2) : elapsedSeconds;
+            const processingTime = data.processing_time
+              ? data.processing_time.toFixed(2)
+              : elapsedSeconds;
             setStatus(`✓ ${data.prediction.predicted_disease}`);
           } else {
             setStatus("Received response but no predictions found");
@@ -726,8 +797,11 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
           console.error("API error response:", data);
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
-        setStatus(`Connection error: ${errorMsg}. Make sure the backend is running on ${API_BASE}`);
+        const errorMsg =
+          error instanceof Error ? error.message : "Unknown error";
+        setStatus(
+          `Connection error: ${errorMsg}. Make sure the backend is running on ${API_BASE}`
+        );
         console.error("Full API error:", error);
       } finally {
         setIsProcessing(false);
@@ -758,8 +832,10 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
       analyser.smoothingTimeConstant = 0.84;
       source.connect(analyser);
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processor.onaudioprocess = (event) => {
-        pcmChunksRef.current.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+      processor.onaudioprocess = event => {
+        pcmChunksRef.current.push(
+          new Float32Array(event.inputBuffer.getChannelData(0))
+        );
       };
       source.connect(processor);
       processor.connect(audioContext.destination);
@@ -784,16 +860,19 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
 
       timeoutRef.current = window.setTimeout(() => stopRecording(), 3000);
     } catch (error: any) {
-      let errorMsg = "Microphone access was blocked. Allow access to test the capture pipeline.";
-      
+      let errorMsg =
+        "Microphone access was blocked. Allow access to test the capture pipeline.";
+
       if (error.name === "NotAllowedError") {
-        errorMsg = "Microphone permission denied. Check: 1) Browser site permissions 2) macOS System Settings > Privacy & Security > Microphone";
+        errorMsg =
+          "Microphone permission denied. Check: 1) Browser site permissions 2) macOS System Settings > Privacy & Security > Microphone";
       } else if (error.name === "NotFoundError") {
         errorMsg = "No microphone found on this device.";
       } else if (error.name === "NotReadableError") {
-        errorMsg = "Microphone is in use by another app. Close other audio apps and retry.";
+        errorMsg =
+          "Microphone is in use by another app. Close other audio apps and retry.";
       }
-      
+
       setStatus(errorMsg);
       cleanupAudio();
       setIsRecording(false);
@@ -814,7 +893,9 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="mono-label text-xs">Interactive intake module</p>
-              <h3 className="mt-2 text-3xl font-bold text-white">Hear It for Yourself</h3>
+              <h3 className="mt-2 text-3xl font-bold text-white">
+                Hear It for Yourself
+              </h3>
             </div>
             <div className="rounded-full border border-cyan-400/20 bg-cyan-400/8 px-4 py-2 font-mono text-xs text-cyan-100/75">
               Browser microphone · local capture · no upload required
@@ -825,7 +906,11 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
             <div className="rounded-[1.5rem] border border-cyan-300/14 bg-[#05111a]/90 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.25)] xl:p-7">
               <div className="flex min-h-[260px] flex-col items-center justify-center gap-4 text-center">
                 <button
-                  aria-label={isRecording ? "Recording in progress" : "Hold to record a cough sample"}
+                  aria-label={
+                    isRecording
+                      ? "Recording in progress"
+                      : "Hold to record a cough sample"
+                  }
                   className={`relative flex h-40 w-40 items-center justify-center rounded-full border text-center transition-transform ${
                     isRecording
                       ? "border-red-400/50 bg-red-500/12 text-red-100"
@@ -834,13 +919,16 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                   onPointerDown={startRecording}
                   onPointerUp={stopRecording}
                   onPointerLeave={stopRecording}
-                  onKeyDown={(event) => {
-                    if ((event.key === " " || event.key === "Enter") && !isRecording) {
+                  onKeyDown={event => {
+                    if (
+                      (event.key === " " || event.key === "Enter") &&
+                      !isRecording
+                    ) {
                       event.preventDefault();
                       startRecording();
                     }
                   }}
-                  onKeyUp={(event) => {
+                  onKeyUp={event => {
                     if (event.key === " " || event.key === "Enter") {
                       event.preventDefault();
                       stopRecording();
@@ -849,13 +937,19 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                 >
                   <span
                     className={`absolute inset-0 rounded-full ${
-                      isRecording ? "animate-ping bg-red-500/16" : "animate-pulse bg-cyan-400/10"
+                      isRecording
+                        ? "animate-ping bg-red-500/16"
+                        : "animate-pulse bg-cyan-400/10"
                     }`}
                   />
                   <span className="relative z-10 flex flex-col items-center gap-3">
-                    <Mic className={`h-8 w-8 ${isRecording ? "text-red-200" : "text-cyan-200"}`} />
+                    <Mic
+                      className={`h-8 w-8 ${isRecording ? "text-red-200" : "text-cyan-200"}`}
+                    />
                     <span className="font-[Space_Grotesk] text-lg font-bold">
-                      {isRecording ? `Recording… ${remaining.toFixed(1)}s` : "Hold to Record"}
+                      {isRecording
+                        ? `Recording… ${remaining.toFixed(1)}s`
+                        : "Hold to Record"}
                     </span>
                   </span>
                 </button>
@@ -896,14 +990,18 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
               <div className="canvas-frame overflow-hidden p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="mono-label text-[11px]">Waveform capture</p>
-                  <span className="font-mono text-xs text-cyan-100/65">time-domain / analyser node</span>
+                  <span className="font-mono text-xs text-cyan-100/65">
+                    time-domain / analyser node
+                  </span>
                 </div>
                 <canvas ref={waveformRef} className="h-36 w-full" />
               </div>
               <div className="canvas-frame overflow-hidden p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="mono-label text-[11px]">Spectrogram display</p>
-                  <span className="font-mono text-xs text-cyan-100/65">frequency-domain / real-time scroll</span>
+                  <span className="font-mono text-xs text-cyan-100/65">
+                    frequency-domain / real-time scroll
+                  </span>
                 </div>
                 <canvas ref={spectrogramRef} className="h-40 w-full" />
               </div>
@@ -914,10 +1012,13 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
         <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 sm:p-6 xl:p-7">
           <div className="space-y-4">
             <div>
-              <p className="mono-label text-xs">{isProcessing ? "Processing..." : "Inference output"}</p>
-              <h4 className="mt-2 text-2xl font-bold text-white">Probability distribution</h4>
-              <p className="mt-2 font-mono text-sm text-slate-300/70">
-               </p>
+              <p className="mono-label text-xs">
+                {isProcessing ? "Processing..." : "Inference output"}
+              </p>
+              <h4 className="mt-2 text-2xl font-bold text-white">
+                Probability distribution
+              </h4>
+              <p className="mt-2 font-mono text-sm text-slate-300/70"></p>
             </div>
 
             {predictions
@@ -926,33 +1027,37 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                   { label: "Tuberculosis", color: "#FF8A3D" },
                   { label: "Bronchitis", color: "#FFB82F" },
                   { label: "Healthy", color: "#00FF94" },
-                ]
-                  .map((item) => {
-                    const value = predictions[item.label] ?? 0;
-                    const isTop = item.label === topPrediction;
-                    return (
-                      <div key={item.label} className="space-y-2">
-                        <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
-                          <span className={isTop ? "font-bold text-white" : ""}>
-                            {item.label}{isTop ? " ★" : ""}
-                          </span>
-                          <span>{Math.round(value * 100)}%</span>
-                        </div>
-                        <div className="progress-track h-3">
-                          <div
-                            className="progress-fill h-full"
-                            style={{ width: `${value * 100}%`, backgroundColor: item.color, color: item.color }}
-                          />
-                        </div>
+                ].map(item => {
+                  const value = predictions[item.label] ?? 0;
+                  const isTop = item.label === topPrediction;
+                  return (
+                    <div key={item.label} className="space-y-2">
+                      <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
+                        <span className={isTop ? "font-bold text-white" : ""}>
+                          {item.label}
+                          {isTop ? " ★" : ""}
+                        </span>
+                        <span>{Math.round(value * 100)}%</span>
                       </div>
-                    );
-                  })
+                      <div className="progress-track h-3">
+                        <div
+                          className="progress-fill h-full"
+                          style={{
+                            width: `${value * 100}%`,
+                            backgroundColor: item.color,
+                            color: item.color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
               : [
                   { label: "Healthy", value: 0.25, color: "#00FF94" },
                   { label: "COVID-19", value: 0.25, color: "#FF4D4D" },
                   { label: "Tuberculosis", value: 0.25, color: "#FF8A3D" },
                   { label: "Bronchitis", value: 0.25, color: "#FFB82F" },
-                ].map((item) => (
+                ].map(item => (
                   <div key={item.label} className="space-y-2">
                     <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
                       <span>{item.label}</span>
@@ -961,48 +1066,64 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
                     <div className="progress-track h-3">
                       <div
                         className="progress-fill h-full"
-                        style={{ width: `${item.value * 100}%`, backgroundColor: item.color, color: item.color }}
+                        style={{
+                          width: `${item.value * 100}%`,
+                          backgroundColor: item.color,
+                          color: item.color,
+                        }}
                       />
                     </div>
                   </div>
                 ))}
 
             {/* Dynamic escalation banner — shown when a high-risk class exceeds 50% confidence */}
-            {predictions && (() => {
-              const highRisk = ["COVID-19", "Tuberculosis"];
-              const riskClass = highRisk.find((cls) => (predictions[cls] ?? 0) > 0.50);
-              return riskClass ? (
-                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-red-400 shadow-[0_0_18px_rgba(255,77,77,0.9)]" />
-                    <div>
-                      <p className="font-[Space_Grotesk] font-bold">Consult a healthcare provider</p>
-                      <p className="mt-1 text-red-100/80">
-                        {riskClass} probability exceeds the 50% escalation threshold. This is not a medical diagnosis.
+            {predictions &&
+              (() => {
+                const highRisk = ["COVID-19", "Tuberculosis"];
+                const riskClass = highRisk.find(
+                  cls => (predictions[cls] ?? 0) > 0.5
+                );
+                return riskClass ? (
+                  <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-red-400 shadow-[0_0_18px_rgba(255,77,77,0.9)]" />
+                      <div>
+                        <p className="font-[Space_Grotesk] font-bold">
+                          Consult a healthcare provider
+                        </p>
+                        <p className="mt-1 text-red-100/80">
+                          {riskClass} probability exceeds the 50% escalation
+                          threshold. This is not a medical diagnosis.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-green-400/20 bg-green-500/10 px-4 py-3 text-sm text-green-100">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-green-400" />
+                      <p>
+                        No high-risk indicators detected above the 50%
+                        threshold.
                       </p>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-green-400/20 bg-green-500/10 px-4 py-3 text-sm text-green-100">
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-green-400" />
-                    <p>No high-risk indicators detected above the 50% threshold.</p>
-                  </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
 
             {/* Mock mode disclaimer */}
             {isMock && predictions && (
               <div className="rounded-2xl border border-yellow-400/20 bg-yellow-500/8 px-4 py-3 text-sm text-yellow-100/80">
-                ⚠️ Demo mode — results are simulated. Load <code className="font-mono text-xs">cough_classifier.pt</code> for real inference.
+                ⚠️ Demo mode — results are simulated. Load{" "}
+                <code className="font-mono text-xs">cough_classifier.pt</code>{" "}
+                for real inference.
               </div>
             )}
 
             {!predictions && (
               <div className="rounded-2xl border border-cyan-300/10 bg-cyan-400/[0.04] p-4 text-sm text-slate-200/75">
-                Hold the record button, cough for 3 seconds, then release to see the probability distribution.
+                Hold the record button, cough for 3 seconds, then release to see
+                the probability distribution.
               </div>
             )}
           </div>
@@ -1020,7 +1141,7 @@ export default function Home() {
   const [highContrast, setHighContrast] = useState(false);
   const logoPathRef = useRef<SVGPathElement | null>(null);
 
-  const sections = useMemo(() => navItems.map((item) => item.id), []);
+  const sections = useMemo(() => navItems.map(item => item.id), []);
 
   useEffect(() => {
     const onScroll = () => {
@@ -1034,12 +1155,15 @@ export default function Home() {
 
   useEffect(() => {
     const visibility = new Map<string, number>();
-    sections.forEach((id) => visibility.set(id, 0));
+    sections.forEach(id => visibility.set(id, 0));
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          visibility.set(entry.target.id, entry.isIntersecting ? entry.intersectionRatio : 0);
+      entries => {
+        entries.forEach(entry => {
+          visibility.set(
+            entry.target.id,
+            entry.isIntersecting ? entry.intersectionRatio : 0
+          );
         });
 
         let bestSection: string | null = null;
@@ -1056,10 +1180,10 @@ export default function Home() {
       {
         threshold: [0, 0.2, 0.4, 0.6],
         rootMargin: "-15% 0px -25% 0px",
-      },
+      }
     );
 
-    sections.forEach((id) => {
+    sections.forEach(id => {
       const section = document.getElementById(id);
       if (section) observer.observe(section);
     });
@@ -1076,8 +1200,15 @@ export default function Home() {
       const logoPath = logoPathRef.current;
       if (logoPath) {
         const length = logoPath.getTotalLength();
-        gsap.set(logoPath, { strokeDasharray: length, strokeDashoffset: length });
-        gsap.to(logoPath, { strokeDashoffset: 0, duration: 1.2, ease: "power2.out" });
+        gsap.set(logoPath, {
+          strokeDasharray: length,
+          strokeDashoffset: length,
+        });
+        gsap.to(logoPath, {
+          strokeDashoffset: 0,
+          duration: 1.2,
+          ease: "power2.out",
+        });
       }
 
       gsap.from("[data-hero-item]", {
@@ -1089,7 +1220,7 @@ export default function Home() {
         delay: 0.35,
       });
 
-      gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((element) => {
+      gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach(element => {
         gsap.from(element, {
           opacity: 0,
           y: 40,
@@ -1102,7 +1233,7 @@ export default function Home() {
         });
       });
 
-      gsap.utils.toArray<HTMLElement>("[data-stagger-group]").forEach((group) => {
+      gsap.utils.toArray<HTMLElement>("[data-stagger-group]").forEach(group => {
         gsap.from(group.children, {
           opacity: 0,
           y: 24,
@@ -1116,36 +1247,34 @@ export default function Home() {
         });
       });
 
-      gsap.utils.toArray<HTMLElement>("[data-hover-lift]").forEach((element) => {
+      gsap.utils.toArray<HTMLElement>("[data-hover-lift]").forEach(element => {
         const baseBorderColor = getComputedStyle(element).borderColor;
         const baseBoxShadow = getComputedStyle(element).boxShadow;
 
-        const enter = () =>
-          {
-            gsap.killTweensOf(element);
-            gsap.to(element, {
-              y: -10,
-              scale: 1.02,
-              borderColor: "rgba(0,229,255,0.32)",
-              boxShadow: "0 24px 80px rgba(0,229,255,0.16)",
-              duration: 0.34,
-              ease: "power3.out",
-              overwrite: "auto",
-            });
-          };
-        const leave = () =>
-          {
-            gsap.killTweensOf(element);
-            gsap.to(element, {
-              y: 0,
-              scale: 1,
-              borderColor: baseBorderColor,
-              boxShadow: baseBoxShadow,
-              duration: 0.26,
-              ease: "power3.out",
-              overwrite: "auto",
-            });
-          };
+        const enter = () => {
+          gsap.killTweensOf(element);
+          gsap.to(element, {
+            y: -10,
+            scale: 1.02,
+            borderColor: "rgba(0,229,255,0.32)",
+            boxShadow: "0 24px 80px rgba(0,229,255,0.16)",
+            duration: 0.34,
+            ease: "power3.out",
+            overwrite: "auto",
+          });
+        };
+        const leave = () => {
+          gsap.killTweensOf(element);
+          gsap.to(element, {
+            y: 0,
+            scale: 1,
+            borderColor: baseBorderColor,
+            boxShadow: baseBoxShadow,
+            duration: 0.26,
+            ease: "power3.out",
+            overwrite: "auto",
+          });
+        };
 
         element.addEventListener("mouseenter", enter);
         element.addEventListener("mouseleave", leave);
@@ -1159,7 +1288,7 @@ export default function Home() {
 
     return () => {
       ctx.revert();
-      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+      ScrollTrigger.getAll().forEach(trigger => trigger.kill());
     };
   }, []);
 
@@ -1172,14 +1301,23 @@ export default function Home() {
   };
 
   return (
-    <div className={`${highContrast ? "[--contrast-glow:0_0_0_1px_rgba(122,246,255,0.34)]" : ""} relative min-h-screen overflow-hidden`}>
+    <div
+      className={`${highContrast ? "[--contrast-glow:0_0_0_1px_rgba(122,246,255,0.34)]" : ""} relative min-h-screen overflow-hidden`}
+    >
       <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5">
         <div className="mx-auto max-w-[1380px] overflow-hidden rounded-[1.4rem] border border-cyan-300/10 bg-[#07121aaa] shadow-[0_10px_50px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
           <div className="h-[2px] w-full bg-white/5">
-            <div className="h-full bg-cyan-300 shadow-[0_0_16px_rgba(0,229,255,0.9)]" style={{ width: `${scrollProgress}%` }} />
+            <div
+              className="h-full bg-cyan-300 shadow-[0_0_16px_rgba(0,229,255,0.9)]"
+              style={{ width: `${scrollProgress}%` }}
+            />
           </div>
           <div className="flex items-center justify-between gap-4 px-4 py-3 lg:px-6">
-            <button aria-label="Go to home section" className="flex items-center gap-3" onClick={() => scrollTo("home")}>
+            <button
+              aria-label="Go to home section"
+              className="flex items-center gap-3"
+              onClick={() => scrollTo("home")}
+            >
               <div className="shrink-0">
                 <svg viewBox="0 0 140 64" className="h-10 w-auto" fill="none">
                   <path
@@ -1189,10 +1327,26 @@ export default function Home() {
                     strokeWidth="4"
                     strokeLinecap="round"
                   />
-                  <path d="M49 20C41 15 29 19 24 28C19 37 22 50 33 54C44 58 53 50 57 42" stroke="rgba(232,244,248,0.8)" strokeWidth="2" opacity="0.72" />
-                  <path d="M91 20C99 15 111 19 116 28C121 37 118 50 107 54C96 58 87 50 83 42" stroke="rgba(232,244,248,0.8)" strokeWidth="2" opacity="0.72" />
+                  <path
+                    d="M49 20C41 15 29 19 24 28C19 37 22 50 33 54C44 58 53 50 57 42"
+                    stroke="rgba(232,244,248,0.8)"
+                    strokeWidth="2"
+                    opacity="0.72"
+                  />
+                  <path
+                    d="M91 20C99 15 111 19 116 28C121 37 118 50 107 54C96 58 87 50 83 42"
+                    stroke="rgba(232,244,248,0.8)"
+                    strokeWidth="2"
+                    opacity="0.72"
+                  />
                   <defs>
-                    <linearGradient id="nav-wave" x1="6" y1="8" x2="134" y2="56">
+                    <linearGradient
+                      id="nav-wave"
+                      x1="6"
+                      y1="8"
+                      x2="134"
+                      y2="56"
+                    >
                       <stop stopColor="#00E5FF" />
                       <stop offset="1" stopColor="#7B2FBE" />
                     </linearGradient>
@@ -1203,17 +1357,21 @@ export default function Home() {
                 <div className="font-[Space_Grotesk] text-lg font-bold tracking-[-0.05em] text-white">
                   Cough<span className="text-cyan-300">Net</span>
                 </div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-300/55">Passive respiratory screening</div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-300/55">
+                  Passive respiratory screening
+                </div>
               </div>
             </button>
 
             <nav className="hidden items-center gap-7 lg:flex">
-              {navItems.map((item) => (
+              {navItems.map(item => (
                 <button
                   key={item.id}
                   aria-label={`Go to ${item.label}`}
                   className={`relative font-[Space_Grotesk] text-sm font-medium tracking-[-0.02em] ${
-                    activeSection === item.id ? "text-cyan-200" : "text-slate-200/76"
+                    activeSection === item.id
+                      ? "text-cyan-200"
+                      : "text-slate-200/76"
                   }`}
                   onClick={() => scrollTo(item.id)}
                 >
@@ -1235,25 +1393,39 @@ export default function Home() {
                   id="language-selector"
                   aria-label="Language selector"
                   value={language}
-                  onChange={(event) => setLanguage(event.target.value)}
+                  onChange={event => setLanguage(event.target.value)}
                   className="bg-transparent font-mono outline-none"
                 >
-                  <option className="bg-[#07121a]" value="EN">EN</option>
-                  <option className="bg-[#07121a]" value="ES">ES</option>
-                  <option className="bg-[#07121a]" value="FR">FR</option>
-                  <option className="bg-[#07121a]" value="HI">HI</option>
+                  <option className="bg-[#07121a]" value="EN">
+                    EN
+                  </option>
+                  <option className="bg-[#07121a]" value="ES">
+                    ES
+                  </option>
+                  <option className="bg-[#07121a]" value="FR">
+                    FR
+                  </option>
+                  <option className="bg-[#07121a]" value="HI">
+                    HI
+                  </option>
                 </select>
               </label>
               <button
                 aria-label="Toggle accessibility contrast mode"
                 className={`rounded-full border px-3 py-2 ${
-                  highContrast ? "border-cyan-300/40 bg-cyan-400/12 text-cyan-100" : "border-white/10 bg-white/4 text-slate-200/75"
+                  highContrast
+                    ? "border-cyan-300/40 bg-cyan-400/12 text-cyan-100"
+                    : "border-white/10 bg-white/4 text-slate-200/75"
                 }`}
-                onClick={() => setHighContrast((value) => !value)}
+                onClick={() => setHighContrast(value => !value)}
               >
                 <Accessibility className="h-4 w-4" />
               </button>
-              <button aria-label="Try the demo" className="cyan-button px-5 py-3 text-sm" onClick={() => scrollTo("live-demo")}>
+              <button
+                aria-label="Try the demo"
+                className="cyan-button px-5 py-3 text-sm"
+                onClick={() => scrollTo("live-demo")}
+              >
                 Try the Demo
               </button>
             </div>
@@ -1261,7 +1433,7 @@ export default function Home() {
             <button
               aria-label="Open navigation"
               className="rounded-full border border-white/10 bg-white/4 p-3 text-slate-100 lg:hidden"
-              onClick={() => setNavOpen((value) => !value)}
+              onClick={() => setNavOpen(value => !value)}
             >
               <Menu className="h-4 w-4" />
             </button>
@@ -1270,7 +1442,7 @@ export default function Home() {
           {navOpen ? (
             <div className="border-t border-white/8 px-4 py-4 lg:hidden">
               <div className="grid gap-3">
-                {navItems.map((item) => (
+                {navItems.map(item => (
                   <button
                     key={item.id}
                     aria-label={`Go to ${item.label}`}
@@ -1281,10 +1453,16 @@ export default function Home() {
                   </button>
                 ))}
                 <div className="flex items-center gap-3 pt-2">
-                  <button className="ghost-button flex-1 px-4 py-3 text-sm" onClick={() => setHighContrast((value) => !value)}>
+                  <button
+                    className="ghost-button flex-1 px-4 py-3 text-sm"
+                    onClick={() => setHighContrast(value => !value)}
+                  >
                     Contrast
                   </button>
-                  <button className="cyan-button flex-1 px-4 py-3 text-sm" onClick={() => scrollTo("live-demo")}>
+                  <button
+                    className="cyan-button flex-1 px-4 py-3 text-sm"
+                    onClick={() => scrollTo("live-demo")}
+                  >
                     Try the Demo
                   </button>
                 </div>
@@ -1295,7 +1473,10 @@ export default function Home() {
       </header>
 
       <main className="relative z-10">
-        <section id="home" className="section-shell relative min-h-screen overflow-hidden pt-28 lg:pt-32">
+        <section
+          id="home"
+          className="section-shell relative min-h-screen overflow-hidden pt-28 lg:pt-32"
+        >
           <HeroScene highContrast={highContrast} />
           <div className="container relative z-10 flex min-h-[calc(100vh-8rem)] items-center py-10">
             <div className="grid w-full items-center gap-20 xl:grid-cols-[0.96fr_1.04fr]">
@@ -1304,34 +1485,66 @@ export default function Home() {
                   <span className="inline-flex h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(0,229,255,0.9)]" />
                   Clinical AI / Edge-ready / Phone-native
                 </div>
-                <div data-hero-item className="mt-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 font-mono text-xs uppercase tracking-[0.18em] text-slate-300/68">
+                <div
+                  data-hero-item
+                  className="mt-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 font-mono text-xs uppercase tracking-[0.18em] text-slate-300/68"
+                >
                   respiratory screening narrative
                 </div>
-                <h1 data-hero-item className="section-title text-balance mt-6 max-w-3xl text-white">
+                <h1
+                  data-hero-item
+                  className="section-title text-balance mt-6 max-w-3xl text-white"
+                >
                   CoughNet
-                  <span className="mt-3 block text-cyan-200/95">Your cough tells a story.</span>
-                  <span className="mt-2 block text-slate-100/88">We listen.</span>
+                  <span className="mt-3 block text-cyan-200/95">
+                    Your cough tells a story.
+                  </span>
+                  <span className="mt-2 block text-slate-100/88">
+                    We listen.
+                  </span>
                 </h1>
                 <p data-hero-item className="section-subtitle mt-7 max-w-xl">
-                  AI-powered respiratory screening via microphone. No equipment. No clinic. Just a phone. CoughNet turns a short cough into a technically legible intake moment with audio telemetry, feature extraction logic, and model-ready outputs.
+                  AI-powered respiratory screening via microphone. No equipment.
+                  No clinic. Just a phone. CoughNet turns a short cough into a
+                  technically legible intake moment with audio telemetry,
+                  feature extraction logic, and model-ready outputs.
                 </p>
-                <div data-hero-item className="mt-9 flex flex-col gap-4 sm:flex-row">
-                  <button aria-label="Try the demo" className="cyan-button px-6 py-4 text-base" onClick={() => scrollTo("live-demo")}>
+                <div
+                  data-hero-item
+                  className="mt-9 flex flex-col gap-4 sm:flex-row"
+                >
+                  <button
+                    aria-label="Try the demo"
+                    className="cyan-button px-6 py-4 text-base"
+                    onClick={() => scrollTo("live-demo")}
+                  >
                     Try the Demo
                   </button>
-                  <button aria-label="Read the research" className="ghost-button px-6 py-4 text-base" onClick={() => scrollTo("research")}>
+                  <button
+                    aria-label="Read the research"
+                    className="ghost-button px-6 py-4 text-base"
+                    onClick={() => scrollTo("research")}
+                  >
                     Read the Research
                   </button>
                 </div>
-                <div data-hero-item className="mt-10 grid gap-4 sm:grid-cols-3 lg:max-w-2xl">
+                <div
+                  data-hero-item
+                  className="mt-10 grid gap-4 sm:grid-cols-3 lg:max-w-2xl"
+                >
                   {[
                     ["Signal", "Real-time waveform + spectrogram"],
                     ["Model", "TF.js-ready inference handoff"],
                     ["Deployment", "Designed for low-resource settings"],
                   ].map(([label, value]) => (
-                    <div key={label} className="rounded-[1.2rem] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+                    <div
+                      key={label}
+                      className="rounded-[1.2rem] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl"
+                    >
                       <div className="mono-label text-[10px]">{label}</div>
-                      <div className="mt-2 text-sm leading-6 text-slate-200/78">{value}</div>
+                      <div className="mt-2 text-sm leading-6 text-slate-200/78">
+                        {value}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1342,7 +1555,9 @@ export default function Home() {
                   <div className="mb-5 flex items-center justify-between">
                     <div>
                       <p className="mono-label text-[11px]">System posture</p>
-                      <h2 className="mt-2 text-2xl font-bold text-white">Built to feel credible in the room</h2>
+                      <h2 className="mt-2 text-2xl font-bold text-white">
+                        Built to feel credible in the room
+                      </h2>
                     </div>
                     <div className="rounded-full border border-cyan-300/16 bg-cyan-400/8 px-4 py-2 font-mono text-xs text-cyan-100/70">
                       live concept interface
@@ -1370,11 +1585,20 @@ export default function Home() {
                         value: "Risk triage bands",
                         detail: "Confidence-aware class scores",
                       },
-                    ].map((item) => (
-                      <div key={item.label} className="rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4">
-                        <div className="mono-label text-[10px]">{item.label}</div>
-                        <div className="mt-3 font-[Space_Grotesk] text-xl font-bold text-white">{item.value}</div>
-                        <div className="mt-2 text-sm leading-6 text-slate-300/70">{item.detail}</div>
+                    ].map(item => (
+                      <div
+                        key={item.label}
+                        className="rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4"
+                      >
+                        <div className="mono-label text-[10px]">
+                          {item.label}
+                        </div>
+                        <div className="mt-3 font-[Space_Grotesk] text-xl font-bold text-white">
+                          {item.value}
+                        </div>
+                        <div className="mt-2 text-sm leading-6 text-slate-300/70">
+                          {item.detail}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1384,7 +1608,10 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="problem" className="section-shell relative overflow-hidden">
+        <section
+          id="problem"
+          className="section-shell relative overflow-hidden"
+        >
           <div
             className="absolute inset-0 opacity-60"
             style={{
@@ -1402,17 +1629,25 @@ export default function Home() {
                 <div data-reveal className="relative z-10">
                   <div className="eyebrow">The problem</div>
                   <h2 className="mt-6 text-[clamp(2.4rem,5vw,4.6rem)] font-bold leading-[0.94] text-white">
-                    Screening bottlenecks still leave entire communities invisible.
+                    Screening bottlenecks still leave entire communities
+                    invisible.
                   </h2>
                   <p className="mt-6 max-w-xl text-lg leading-8 text-slate-200/72">
-                    Respiratory disease surveillance still depends on physical access, trained staff, and slow pathways that often miss the earliest, most scalable moment of signal capture. CoughNet reframes the phone microphone as a passive triage sensor.
+                    Respiratory disease surveillance still depends on physical
+                    access, trained staff, and slow pathways that often miss the
+                    earliest, most scalable moment of signal capture. CoughNet
+                    reframes the phone microphone as a passive triage sensor.
                   </p>
                 </div>
                 <div data-stagger-group className="relative z-10 grid gap-4">
-                  {stats.map((stat) => {
+                  {stats.map(stat => {
                     const Icon = stat.icon;
                     return (
-                      <div key={stat.label} className="diagnostic-card p-5 sm:p-6" data-hover-lift>
+                      <div
+                        key={stat.label}
+                        className="diagnostic-card p-5 sm:p-6"
+                        data-hover-lift
+                      >
                         <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-start">
                           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/14 bg-cyan-400/8">
                             <Icon className="h-6 w-6 text-cyan-200" />
@@ -1426,8 +1661,12 @@ export default function Home() {
                                 decimals={stat.decimals}
                               />
                             </div>
-                            <div className="mt-3 text-base font-semibold text-slate-100">{stat.label}</div>
-                            <p className="mt-2 max-w-xl text-sm leading-7 text-slate-300/72">{stat.description}</p>
+                            <div className="mt-3 text-base font-semibold text-slate-100">
+                              {stat.label}
+                            </div>
+                            <p className="mt-2 max-w-xl text-sm leading-7 text-slate-300/72">
+                              {stat.description}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -1439,7 +1678,10 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="how-it-works" className="section-shell relative overflow-hidden">
+        <section
+          id="how-it-works"
+          className="section-shell relative overflow-hidden"
+        >
           <div
             className="absolute inset-0 opacity-65"
             style={{
@@ -1455,14 +1697,23 @@ export default function Home() {
                 From Cough to Diagnosis
               </h2>
               <p className="mt-6 text-lg leading-8 text-slate-200/72">
-                The product story is simple: capture a cough, translate it into features, run inference, and return interpretable probabilities. The interface makes each stage auditable so the pipeline looks engineered rather than magical.
+                The product story is simple: capture a cough, translate it into
+                features, run inference, and return interpretable probabilities.
+                The interface makes each stage auditable so the pipeline looks
+                engineered rather than magical.
               </p>
             </div>
 
-            <div className="mt-12 overflow-hidden rounded-[2rem] border border-white/8 bg-[#07131c]/78 p-5 shadow-[0_28px_90px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:p-7 lg:p-10" data-reveal>
+            <div
+              className="mt-12 overflow-hidden rounded-[2rem] border border-white/8 bg-[#07131c]/78 p-5 shadow-[0_28px_90px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:p-7 lg:p-10"
+              data-reveal
+            >
               <div className="relative">
                 <div className="pointer-events-none absolute left-0 right-0 top-10 hidden h-px bg-[linear-gradient(90deg,rgba(0,229,255,0.18),rgba(123,47,190,0.42),rgba(0,255,148,0.18))] lg:block" />
-                <div className="grid gap-5 lg:grid-cols-3 xl:grid-cols-5" data-stagger-group>
+                <div
+                  className="grid gap-5 lg:grid-cols-3 xl:grid-cols-5"
+                  data-stagger-group
+                >
                   {pipelineSteps.map((step, index) => {
                     const Icon = step.icon;
                     return (
@@ -1471,19 +1722,37 @@ export default function Home() {
                         className="diagnostic-card relative flex min-h-[260px] flex-col p-5 xl:min-h-[280px]"
                         data-hover-lift
                       >
-                        <div className="absolute left-5 top-5 font-mono text-[11px] uppercase tracking-[0.24em] text-white/35">0{index + 1}</div>
-                        <div className="mt-8 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10" style={{ backgroundColor: `${step.accent}18`, color: step.accent }}>
+                        <div className="absolute left-5 top-5 font-mono text-[11px] uppercase tracking-[0.24em] text-white/35">
+                          0{index + 1}
+                        </div>
+                        <div
+                          className="mt-8 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10"
+                          style={{
+                            backgroundColor: `${step.accent}18`,
+                            color: step.accent,
+                          }}
+                        >
                           <Icon className="h-6 w-6" />
                         </div>
-                        <h3 className="mt-6 text-2xl font-bold text-white">{step.title}</h3>
-                        <p className="mt-2 font-mono text-xs uppercase tracking-[0.18em] text-slate-300/60">{step.meta}</p>
-                        <p className="mt-5 text-[15px] leading-7 text-slate-300/74">{step.detail}</p>
+                        <h3 className="mt-6 text-2xl font-bold text-white">
+                          {step.title}
+                        </h3>
+                        <p className="mt-2 font-mono text-xs uppercase tracking-[0.18em] text-slate-300/60">
+                          {step.meta}
+                        </p>
+                        <p className="mt-5 text-[15px] leading-7 text-slate-300/74">
+                          {step.detail}
+                        </p>
                         <div className="mt-auto pt-6">
                           <div className="h-1.5 rounded-full bg-white/6">
-                          <div
-                            className="h-full rounded-full shadow-[0_0_16px_currentColor]"
-                            style={{ width: `${38 + index * 14}%`, backgroundColor: step.accent, color: step.accent }}
-                          />
+                            <div
+                              className="h-full rounded-full shadow-[0_0_16px_currentColor]"
+                              style={{
+                                width: `${38 + index * 14}%`,
+                                backgroundColor: step.accent,
+                                color: step.accent,
+                              }}
+                            />
                           </div>
                         </div>
                       </div>
@@ -1495,23 +1764,34 @@ export default function Home() {
               <div className="mt-10 flex flex-col gap-4 rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-[Space_Grotesk] text-lg font-bold text-white">
-                    Based on published research from Cambridge University & Carnegie Mellon University
+                    Based on published research from Cambridge University &
+                    Carnegie Mellon University
                   </p>
                   <p className="mt-2 text-sm text-slate-300/70">
-                    Dataset-first design, clear inference handoff, and interface cues that make the science legible to judges.
+                    Dataset-first design, clear inference handoff, and interface
+                    cues that make the science legible to judges.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-100/72">
-                  <span className="rounded-full border border-cyan-300/14 bg-cyan-400/8 px-3 py-2">Cambridge</span>
-                  <span className="rounded-full border border-violet-300/14 bg-violet-400/8 px-3 py-2">Carnegie Mellon</span>
-                  <span className="rounded-full border border-emerald-300/14 bg-emerald-400/8 px-3 py-2">IISc Coswara</span>
+                  <span className="rounded-full border border-cyan-300/14 bg-cyan-400/8 px-3 py-2">
+                    Cambridge
+                  </span>
+                  <span className="rounded-full border border-violet-300/14 bg-violet-400/8 px-3 py-2">
+                    Carnegie Mellon
+                  </span>
+                  <span className="rounded-full border border-emerald-300/14 bg-emerald-400/8 px-3 py-2">
+                    IISc Coswara
+                  </span>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section id="live-demo" className="section-shell relative overflow-hidden">
+        <section
+          id="live-demo"
+          className="section-shell relative overflow-hidden"
+        >
           <div className="container section-pad relative z-10">
             <div className="mb-8 max-w-3xl" data-reveal>
               <div className="eyebrow">Live demo</div>
@@ -1519,7 +1799,10 @@ export default function Home() {
                 Demo the intake layer judges can actually touch.
               </h2>
               <p className="mt-6 text-lg leading-8 text-slate-200/72">
-                This section focuses on the most persuasive product handoff: a tangible microphone interaction paired with waveform and spectrogram feedback, followed by a transparent placeholder inference panel that shows where the model connects.
+                This section focuses on the most persuasive product handoff: a
+                tangible microphone interaction paired with waveform and
+                spectrogram feedback, followed by a transparent placeholder
+                inference panel that shows where the model connects.
               </p>
             </div>
             <div data-reveal>
@@ -1528,9 +1811,15 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="research" className="section-shell relative overflow-hidden">
+        <section
+          id="research"
+          className="section-shell relative overflow-hidden"
+        >
           <div className="container section-pad relative z-10">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between" data-reveal>
+            <div
+              className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between"
+              data-reveal
+            >
               <div className="max-w-3xl">
                 <div className="eyebrow">Research & credibility</div>
                 <h2 className="mt-6 text-[clamp(2.5rem,5vw,4.6rem)] font-bold leading-[0.96] text-white">
@@ -1538,24 +1827,37 @@ export default function Home() {
                 </h2>
               </div>
               <p className="max-w-xl text-base leading-8 text-slate-300/72">
-                CoughNet is presented as an auditable screening interface rooted in open-access research, not an opaque black-box claim.
+                CoughNet is presented as an auditable screening interface rooted
+                in open-access research, not an opaque black-box claim.
               </p>
             </div>
 
             <div className="mt-12 grid gap-5 lg:grid-cols-3" data-stagger-group>
-              {researchCards.map((card) => {
+              {researchCards.map(card => {
                 const Icon = card.icon;
                 return (
-                  <article key={card.title} className="diagnostic-card flex h-full flex-col p-6" data-hover-lift>
+                  <article
+                    key={card.title}
+                    className="diagnostic-card flex h-full flex-col p-6"
+                    data-hover-lift
+                  >
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/14 bg-cyan-400/8 text-cyan-200">
                         <Icon className="h-6 w-6" />
                       </div>
-                      <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-300/58">{card.year}</div>
+                      <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-300/58">
+                        {card.year}
+                      </div>
                     </div>
-                    <h3 className="mt-6 text-2xl font-bold text-white">{card.title}</h3>
-                    <p className="mt-2 font-mono text-xs uppercase tracking-[0.16em] text-cyan-100/62">{card.source}</p>
-                    <p className="mt-5 flex-1 text-sm leading-7 text-slate-300/74">{card.abstract}</p>
+                    <h3 className="mt-6 text-2xl font-bold text-white">
+                      {card.title}
+                    </h3>
+                    <p className="mt-2 font-mono text-xs uppercase tracking-[0.16em] text-cyan-100/62">
+                      {card.source}
+                    </p>
+                    <p className="mt-5 flex-1 text-sm leading-7 text-slate-300/74">
+                      {card.abstract}
+                    </p>
                     <a
                       className="mt-6 inline-flex items-center gap-2 font-[Space_Grotesk] font-bold text-cyan-200"
                       href={card.href}
@@ -1569,8 +1871,12 @@ export default function Home() {
               })}
             </div>
 
-            <div className="mt-8 rounded-[1.5rem] border border-white/8 bg-white/[0.03] px-5 py-4 text-center text-sm text-slate-300/70" data-reveal>
-              CoughNet&apos;s classifier is trained on open-access datasets. No proprietary data. Fully auditable.
+            <div
+              className="mt-8 rounded-[1.5rem] border border-white/8 bg-white/[0.03] px-5 py-4 text-center text-sm text-slate-300/70"
+              data-reveal
+            >
+              CoughNet&apos;s classifier is trained on open-access datasets. No
+              proprietary data. Fully auditable.
             </div>
           </div>
         </section>
@@ -1579,15 +1885,23 @@ export default function Home() {
           <div className="container section-pad relative z-10">
             <div className="max-w-3xl" data-reveal>
               <div className="eyebrow">Team</div>
-              <h2 className="mt-6 text-[clamp(2.5rem,5vw,4.6rem)] font-bold leading-[0.96] text-white">Built by Team CoughNet</h2>
+              <h2 className="mt-6 text-[clamp(2.5rem,5vw,4.6rem)] font-bold leading-[0.96] text-white">
+                Built by Team CoughNet
+              </h2>
               <p className="mt-6 text-lg leading-8 text-slate-200/72">
-                A deliberately cross-functional team spanning signal processing, model design, and the interface layer that makes technical systems legible in the room.
+                A deliberately cross-functional team spanning signal processing,
+                model design, and the interface layer that makes technical
+                systems legible in the room.
               </p>
             </div>
 
             <div className="mt-12 grid gap-5 lg:grid-cols-3" data-stagger-group>
-              {teamMembers.map((member) => (
-                <article key={member.name} className="diagnostic-card p-6" data-hover-lift>
+              {teamMembers.map(member => (
+                <article
+                  key={member.name}
+                  className="diagnostic-card p-6"
+                  data-hover-lift
+                >
                   <div className="flex items-start justify-between gap-4">
                     <GeometricAvatar palette={member.palette} />
                     <a
@@ -1600,11 +1914,15 @@ export default function Home() {
                       <Linkedin className="h-4 w-4" />
                     </a>
                   </div>
-                  <h3 className="mt-6 text-2xl font-bold text-white">{member.name}</h3>
+                  <h3 className="mt-6 text-2xl font-bold text-white">
+                    {member.name}
+                  </h3>
                   <p className="mt-2 inline-flex rounded-full border border-cyan-300/16 bg-cyan-400/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-100/72">
                     {member.role}
                   </p>
-                  <p className="mt-5 text-sm leading-7 text-slate-300/74">{member.bio}</p>
+                  <p className="mt-5 text-sm leading-7 text-slate-300/74">
+                    {member.bio}
+                  </p>
                 </article>
               ))}
             </div>
@@ -1626,11 +1944,21 @@ export default function Home() {
             <div className="eyebrow">Deployable public-health interface</div>
             <h2 className="mt-6 text-[clamp(2.8rem,6vw,5.8rem)] font-bold leading-[0.94] text-white">
               A phone is all it takes.
-              <span className="mt-3 block text-cyan-200">Deploy CoughNet to your community today.</span>
+              <span className="mt-3 block text-cyan-200">
+                Deploy CoughNet to your community today.
+              </span>
             </h2>
             <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
-              <button className="cyan-button px-6 py-4 text-base" onClick={() => scrollTo("live-demo")}>Try the Demo</button>
-              <a className="ghost-button px-6 py-4 text-base" href="mailto:team@coughnet.health">
+              <button
+                className="cyan-button px-6 py-4 text-base"
+                onClick={() => scrollTo("live-demo")}
+              >
+                Try the Demo
+              </button>
+              <a
+                className="ghost-button px-6 py-4 text-base"
+                href="mailto:team@coughnet.health"
+              >
                 Contact Us
               </a>
             </div>
@@ -1644,18 +1972,26 @@ export default function Home() {
                   <div className="font-[Space_Grotesk] text-xl font-bold text-white">
                     Cough<span className="text-cyan-300">Net</span>
                   </div>
-                  <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-300/55">Respiratory screening interface</div>
+                  <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-300/55">
+                    Respiratory screening interface
+                  </div>
                 </div>
               </div>
               <p className="mt-5 max-w-xl text-sm leading-7 text-slate-300/72">
-                Designed for community health workers in low-resource settings worldwide. The goal is not to replace clinicians, but to shorten the path between signal and escalation.
+                Designed for community health workers in low-resource settings
+                worldwide. The goal is not to replace clinicians, but to shorten
+                the path between signal and escalation.
               </p>
             </div>
             <div>
               <div className="mono-label text-[11px]">Navigation</div>
               <div className="mt-3 grid gap-2 text-sm text-slate-200/80">
-                {navItems.map((item) => (
-                  <button key={item.id} className="text-left" onClick={() => scrollTo(item.id)}>
+                {navItems.map(item => (
+                  <button
+                    key={item.id}
+                    className="text-left"
+                    onClick={() => scrollTo(item.id)}
+                  >
                     {item.label}
                   </button>
                 ))}
@@ -1664,10 +2000,22 @@ export default function Home() {
             <div>
               <div className="mono-label text-[11px]">Connect</div>
               <div className="mt-3 flex gap-3">
-                <a aria-label="Open GitHub" href="https://github.com/" target="_blank" rel="noreferrer" className="rounded-full border border-white/10 bg-white/4 p-3 text-slate-100">
+                <a
+                  aria-label="Open GitHub"
+                  href="https://github.com/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-white/10 bg-white/4 p-3 text-slate-100"
+                >
                   <Github className="h-4 w-4" />
                 </a>
-                <a aria-label="Open LinkedIn" href="https://www.linkedin.com/" target="_blank" rel="noreferrer" className="rounded-full border border-white/10 bg-white/4 p-3 text-slate-100">
+                <a
+                  aria-label="Open LinkedIn"
+                  href="https://www.linkedin.com/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-white/10 bg-white/4 p-3 text-slate-100"
+                >
                   <Linkedin className="h-4 w-4" />
                 </a>
               </div>
