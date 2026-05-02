@@ -344,40 +344,7 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
 
     group.add(leftLung, rightLung, trachea);
 
-    const helixGroup = new THREE.Group();
-    for (let i = 0; i < 2; i += 1) {
-      const points: THREE.Vector3[] = [];
-      for (let step = 0; step < 120; step += 1) {
-        const t = step / 16;
-        const angle = t * Math.PI * 1.8 + (i === 0 ? 0 : Math.PI);
-        points.push(new THREE.Vector3(Math.cos(angle) * 0.45, -2 + step * 0.038, Math.sin(angle) * 0.45));
-      }
-      const curve = new THREE.CatmullRomCurve3(points);
-      const tube = new THREE.Mesh(
-        new THREE.TubeGeometry(curve, 180, 0.06, 10, false),
-        new THREE.MeshBasicMaterial({
-          color: new THREE.Color(i === 0 ? "#C58CFF" : "#7B2FBE"),
-          transparent: true,
-          opacity: 0.85,
-        }),
-      );
-      helixGroup.add(tube);
-    }
-
-    for (let rung = 0; rung < 14; rung += 1) {
-      const y = -1.75 + rung * 0.32;
-      const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-0.35, y, 0),
-        new THREE.Vector3(0.35, y, 0),
-      ]);
-      const line = new THREE.Line(
-        geo,
-        new THREE.LineBasicMaterial({ color: new THREE.Color(rung % 2 === 0 ? "#E8B8FF" : "#AE7AFF"), transparent: true, opacity: 0.4 }),
-      );
-      helixGroup.add(line);
-    }
-
-    group.add(helixGroup);
+    // Removed rotating helix and ring - replaced with pulsing lung animation
 
     const spectrogramCanvas = document.createElement("canvas");
     spectrogramCanvas.width = 512;
@@ -402,12 +369,7 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
     const spectrogramTexture = new THREE.CanvasTexture(spectrogramCanvas);
     spectrogramTexture.needsUpdate = true;
 
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(3.24, 0.22, 24, 180),
-      new THREE.MeshBasicMaterial({ map: spectrogramTexture, transparent: true, opacity: 0.95 }),
-    );
-    ring.rotation.x = Math.PI / 2.4;
-    group.add(ring);
+    // Removed rotating ring - replaced with pulsing lung animation
 
     const particlesGeometry = new THREE.BufferGeometry();
     const particleCount = 900;
@@ -436,28 +398,33 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
     cyan.position.set(-2.4, 1.4, 2.8);
     scene.add(ambient, violet, cyan);
 
-    gsap.to(group.scale, {
-      x: 1.04,
-      y: 1.07,
-      z: 1.04,
-      duration: 2.4,
+    // Pulsing lung animation - lungs enlarge and shrink
+    gsap.to(leftLung.scale, {
+      x: 1.15,
+      y: 1.25,
+      z: 1.15,
+      duration: 2.2,
       repeat: -1,
       yoyo: true,
       ease: "sine.inOut",
     });
 
-    gsap.to(helixGroup.rotation, {
-      y: Math.PI * 2,
-      duration: 12,
+    gsap.to(rightLung.scale, {
+      x: 1.15,
+      y: 1.25,
+      z: 1.15,
+      duration: 2.2,
       repeat: -1,
-      ease: "none",
+      yoyo: true,
+      ease: "sine.inOut",
     });
 
-    gsap.to(ring.rotation, {
-      z: Math.PI * 2,
-      duration: 16,
+    gsap.to(trachea.scale, {
+      y: 1.12,
+      duration: 2.2,
       repeat: -1,
-      ease: "none",
+      yoyo: true,
+      ease: "sine.inOut",
     });
 
     const section = container.closest("section");
@@ -511,7 +478,6 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
       leftLung.geometry.dispose();
       rightLung.geometry.dispose();
       trachea.geometry.dispose();
-      ring.geometry.dispose();
       spectrogramTexture.dispose();
       particlesGeometry.dispose();
       lungMaterial.dispose();
