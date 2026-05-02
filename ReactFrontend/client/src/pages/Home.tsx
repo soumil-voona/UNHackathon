@@ -569,11 +569,13 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMock, setIsMock] = useState(false);
   const [topPrediction, setTopPrediction] = useState<string | null>(null);
-  const fallbackRows = Object.entries(predictionColors).map(([label, color]) => ({
-    label,
-    value: 1 / Object.keys(predictionColors).length,
-    color,
-  }));
+  const fallbackRows = Object.entries(predictionColors).map(
+    ([label, color]) => ({
+      label,
+      value: 1 / Object.keys(predictionColors).length,
+      color,
+    })
+  );
 
   // Backend URL — configurable via VITE_API_URL environment variable.
   // If the deployed frontend still ships with the old /api proxy value,
