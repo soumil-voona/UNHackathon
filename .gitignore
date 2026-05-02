@@ -1,6 +1,7 @@
 node_modules/
 audio_data/
 *.pt
+!balanced_best_cough_classifier.pt
 !best_cough_classifier.pt
 .venv/
 __pycache__/
