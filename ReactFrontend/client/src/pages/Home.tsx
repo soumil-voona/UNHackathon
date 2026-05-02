@@ -398,34 +398,7 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
     cyan.position.set(-2.4, 1.4, 2.8);
     scene.add(ambient, violet, cyan);
 
-    // Pulsing lung animation - lungs enlarge and shrink
-    gsap.to(leftLung.scale, {
-      x: 1.15,
-      y: 1.25,
-      z: 1.15,
-      duration: 2.2,
-      repeat: -1,
-      yoyo: true,
-      ease: "sine.inOut",
-    });
-
-    gsap.to(rightLung.scale, {
-      x: 1.15,
-      y: 1.25,
-      z: 1.15,
-      duration: 2.2,
-      repeat: -1,
-      yoyo: true,
-      ease: "sine.inOut",
-    });
-
-    gsap.to(trachea.scale, {
-      y: 1.12,
-      duration: 2.2,
-      repeat: -1,
-      yoyo: true,
-      ease: "sine.inOut",
-    });
+    // 3D lungs no longer animate - background image handles the pulsing effect
 
     const section = container.closest("section");
     const scrub = section
@@ -487,8 +460,22 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
 
   return (
     <div ref={containerRef} className="absolute inset-0 overflow-hidden">
+      <style>{`
+        @keyframes lungPulse {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.08);
+          }
+        }
+        .lung-pulse {
+          animation: lungPulse 2.2s ease-in-out infinite;
+          transform-origin: center;
+        }
+      `}</style>
       <div
-        className="absolute inset-0 opacity-45"
+        className="absolute inset-0 opacity-45 lung-pulse"
         style={{
           backgroundImage: `radial-gradient(circle at center, rgba(0,229,255,0.14), transparent 36%), linear-gradient(180deg, rgba(4,12,18,0.06), rgba(4,12,18,0.85)), url(${HERO_BG})`,
           backgroundPosition: "center",
