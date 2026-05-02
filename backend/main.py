@@ -16,16 +16,23 @@ import hashlib
 import warnings
 warnings.filterwarnings('ignore')
 
-# Disease classifications based on provided datasets:
-# 1. vbookshelf/respiratory-sound-database: Healthy, Asthma, Bronchitis, URTI (Cold Cough)
-# 2. andrewmvd/covid19-cough-audio-classification: COVID-19, Healthy, Other
-# 3. ruchikashirsath/tb-audio: Tuberculosis, Pneumonia, and other respiratory conditions
+# Disease classifications used by the saved 7-class checkpoints:
+# 1. Healthy
+# 2. Cold Cough (URTI)
+# 3. COVID-19
+# 4. Asthma
+# 5. Bronchitis
+# 6. Tuberculosis
+# 7. Pneumonia
 
 DISEASE_CLASSES = {
-    0: "Healthy",           # From all datasets
-    1: "COVID-19",          # From COVID-19 Cough Classification dataset
-    2: "Bronchitis",        # From Respiratory Sound Database
-    3: "Tuberculosis",      # From TB Audio dataset
+    0: "Healthy",
+    1: "Cold Cough",
+    2: "COVID-19",
+    3: "Asthma",
+    4: "Bronchitis",
+    5: "Tuberculosis",
+    6: "Pneumonia",
 }
 
 NUM_CLASSES = len(DISEASE_CLASSES)

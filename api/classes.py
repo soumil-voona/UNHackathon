@@ -16,9 +16,12 @@ try:
 except Exception as e:
     DISEASE_CLASSES = {
         0: "Healthy",
-        1: "COVID-19",
-        2: "Bronchitis",
-        3: "Tuberculosis",
+        1: "Cold Cough",
+        2: "COVID-19",
+        3: "Asthma",
+        4: "Bronchitis",
+        5: "Tuberculosis",
+        6: "Pneumonia",
     }
 
 

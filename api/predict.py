@@ -38,6 +38,15 @@ except Exception as e:
     log.warning(f"Could not load model: {e}")
     INFERENCE = None
     MODEL_LOADED = False
+    DISEASE_CLASSES = {
+        0: "Healthy",
+        1: "Cold Cough",
+        2: "COVID-19",
+        3: "Asthma",
+        4: "Bronchitis",
+        5: "Tuberculosis",
+        6: "Pneumonia",
+    }
 
 
 def mock_classify(audio_data: bytes) -> dict:

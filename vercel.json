@@ -1,20 +1,5 @@
 {
-  "buildCommand": "cd ReactFrontend && npm install && npm run build && cd ../backend && pip install -r api/requirements.txt",
-  "installCommand": "echo 'Dependencies will be installed during buildCommand'",
-  "outputDirectory": "ReactFrontend/dist",
-  "functions": {
-    "api/**": {
-      "runtime": "python3.11"
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  "framework": "vite",
+  "buildCommand": "cd ReactFrontend && corepack pnpm install --frozen-lockfile && corepack pnpm build",
+  "outputDirectory": "ReactFrontend/dist/public"
 }

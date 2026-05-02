@@ -215,6 +215,16 @@ const teamMembers = [
   },
 ];
 
+const predictionColors: Record<string, string> = {
+  Healthy: "#00FF94",
+  "Cold Cough": "#3CE8FF",
+  "COVID-19": "#FF4D4D",
+  Asthma: "#7B2FBE",
+  Bronchitis: "#FFB82F",
+  Tuberculosis: "#FF8A3D",
+  Pneumonia: "#A855F7",
+};
+
 gsap.registerPlugin(ScrollTrigger);
 
 function LogoMark() {
@@ -559,12 +569,20 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMock, setIsMock] = useState(false);
   const [topPrediction, setTopPrediction] = useState<string | null>(null);
+  const fallbackRows = Object.entries(predictionColors).map(([label, color]) => ({
+    label,
+    value: 1 / Object.keys(predictionColors).length,
+    color,
+  }));
 
-  // Backend URL — configurable via VITE_API_URL environment variable
-  // Default: http://127.0.0.1:8000 (local FastAPI server)
+  // Backend URL — configurable via VITE_API_URL environment variable.
+  // If the deployed frontend still ships with the old /api proxy value,
+  // fall back to the Render backend so production keeps working.
+  const configuredApiBase = import.meta.env.VITE_API_URL as string | undefined;
   const API_BASE =
-    (import.meta.env.VITE_API_URL as string | undefined) ??
-    "http://127.0.0.1:8000";
+    configuredApiBase && configuredApiBase !== "/api"
+      ? configuredApiBase
+      : "https://unhackathon-y49l.onrender.com";
 
   useEffect(() => {
     const waveformCanvas = waveformRef.current;
@@ -1021,60 +1039,39 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
               <p className="mt-2 font-mono text-sm text-slate-300/70"></p>
             </div>
 
-            {predictions
-              ? [
-                  { label: "COVID-19", color: "#FF4D4D" },
-                  { label: "Tuberculosis", color: "#FF8A3D" },
-                  { label: "Bronchitis", color: "#FFB82F" },
-                  { label: "Healthy", color: "#00FF94" },
-                ].map(item => {
-                  const value = predictions[item.label] ?? 0;
-                  const isTop = item.label === topPrediction;
-                  return (
-                    <div key={item.label} className="space-y-2">
-                      <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
-                        <span className={isTop ? "font-bold text-white" : ""}>
-                          {item.label}
-                          {isTop ? " ★" : ""}
-                        </span>
-                        <span>{Math.round(value * 100)}%</span>
-                      </div>
-                      <div className="progress-track h-3">
-                        <div
-                          className="progress-fill h-full"
-                          style={{
-                            width: `${value * 100}%`,
-                            backgroundColor: item.color,
-                            color: item.color,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })
-              : [
-                  { label: "Healthy", value: 0.25, color: "#00FF94" },
-                  { label: "COVID-19", value: 0.25, color: "#FF4D4D" },
-                  { label: "Tuberculosis", value: 0.25, color: "#FF8A3D" },
-                  { label: "Bronchitis", value: 0.25, color: "#FFB82F" },
-                ].map(item => (
-                  <div key={item.label} className="space-y-2">
-                    <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
-                      <span>{item.label}</span>
-                      <span>{Math.round(item.value * 100)}%</span>
-                    </div>
-                    <div className="progress-track h-3">
-                      <div
-                        className="progress-fill h-full"
-                        style={{
-                          width: `${item.value * 100}%`,
-                          backgroundColor: item.color,
-                          color: item.color,
-                        }}
-                      />
-                    </div>
+            {(predictions
+              ? Object.entries(predictions)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([label, value]) => ({
+                    label,
+                    value,
+                    color: predictionColors[label] ?? "#8EF8FF",
+                  }))
+              : fallbackRows
+            ).map(item => {
+              const isTop = item.label === topPrediction;
+              return (
+                <div key={item.label} className="space-y-2">
+                  <div className="flex items-center justify-between font-mono text-xs text-slate-200/80">
+                    <span className={isTop ? "font-bold text-white" : ""}>
+                      {item.label}
+                      {isTop ? " ★" : ""}
+                    </span>
+                    <span>{Math.round(item.value * 100)}%</span>
                   </div>
-                ))}
+                  <div className="progress-track h-3">
+                    <div
+                      className="progress-fill h-full"
+                      style={{
+                        width: `${item.value * 100}%`,
+                        backgroundColor: item.color,
+                        color: item.color,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
 
             {/* Dynamic escalation banner — shown when a high-risk class exceeds 50% confidence */}
             {predictions &&

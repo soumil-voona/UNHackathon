@@ -3,13 +3,62 @@ Inference and evaluation utilities for the Cough Classifier model.
 Provides convenient functions for making predictions and evaluating model performance.
 """
 
+import json
+import os
+from pathlib import Path
+
 import torch
 import torchaudio
 import torchaudio.transforms as T
-from pathlib import Path
+
 from main import CoughClassifier, CoughClassifierTrainer, DISEASE_CLASSES, NUM_CLASSES
 from main import SAMPLE_RATE, N_MELS, N_FFT, HOP_LENGTH
-import json
+
+
+def _candidate_model_paths(explicit_path: str | None = None) -> list[Path]:
+    """Return likely checkpoint locations in priority order."""
+    backend_dir = Path(__file__).resolve().parent
+    repo_root = backend_dir.parent
+
+    candidates: list[Path] = []
+    seen: set[str] = set()
+
+    def add(path: Path) -> None:
+        resolved_key = str(path.resolve()) if path.exists() else str(path)
+        if resolved_key not in seen:
+            seen.add(resolved_key)
+            candidates.append(path)
+
+    if explicit_path:
+        add(Path(explicit_path).expanduser())
+
+    env_path = os.getenv("MODEL_PATH", "").strip()
+    if env_path:
+        add(Path(env_path).expanduser())
+
+    # Prefer the strongest checkpoint shipped with the repo, then fall back to
+    # alternate checkpoints and the legacy backend-local filename.
+    for candidate in [
+        repo_root / "best_cough_classifier.pt",
+        repo_root / "balanced_best_cough_classifier.pt",
+        repo_root / "capped_best_cough_classifier.pt",
+        repo_root / "balanced_cough_classifier.pt",
+        repo_root / "capped_cough_classifier.pt",
+        repo_root / "best_try.pt",
+        repo_root / "test_augmented.pt",
+        backend_dir / "cough_classifier.pt",
+    ]:
+        add(candidate)
+
+    return candidates
+
+
+def resolve_model_path(model_path: str | None = None) -> Path | None:
+    """Resolve the first existing checkpoint path from the candidate list."""
+    for candidate in _candidate_model_paths(model_path):
+        if candidate.exists():
+            return candidate
+    return None
 
 
 class CoughInference:
@@ -30,13 +79,30 @@ class CoughInference:
         
         self.model = CoughClassifier(num_classes=NUM_CLASSES)
         self.trainer = CoughClassifierTrainer(self.model, device=self.device)
-        self.model_path = Path(model_path)
+        self.model_path = resolve_model_path(model_path) or Path(model_path)
         self.model_loaded = False
         
         if self.model_path.exists():
-            self.trainer.load_model(str(self.model_path))
-            self.model_loaded = True
-            print(f"Model loaded from {self.model_path}")
+            try:
+                self.trainer.load_model(str(self.model_path))
+                self.model_loaded = True
+                print(f"Model loaded from {self.model_path}")
+            except Exception as exc:
+                print(f"Warning: Failed to load model from {self.model_path}: {exc}")
+                alternate_path = next(
+                    (candidate for candidate in _candidate_model_paths(None) if candidate.exists() and candidate != self.model_path),
+                    None,
+                )
+                if alternate_path is not None:
+                    try:
+                        self.model_path = alternate_path
+                        self.trainer.load_model(str(self.model_path))
+                        self.model_loaded = True
+                        print(f"Model loaded from fallback path {self.model_path}")
+                    except Exception as fallback_exc:
+                        print(f"Warning: Fallback model load failed: {fallback_exc}")
+                if not self.model_loaded:
+                    print("Warning: Model checkpoint could not be loaded. Inference will use mock mode in the API.")
         else:
             print(f"Warning: Model file {self.model_path} not found. Inference will use mock mode in the API.")
     
