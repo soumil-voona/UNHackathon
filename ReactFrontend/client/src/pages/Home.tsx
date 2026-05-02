@@ -308,7 +308,13 @@ function HeroScene({ highContrast }: { highContrast: boolean }) {
     const camera = new THREE.PerspectiveCamera(46, container.clientWidth / container.clientHeight, 0.1, 100);
     camera.position.set(0, 0, 10);
 
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    } catch (error) {
+      console.warn("WebGL renderer initialization failed; continuing without 3D hero scene.", error);
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -685,9 +691,9 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
         console.log("Sending to", apiUrl);
 
         const statusInterval = window.setInterval(() => {
-          const elapsedSeconds = Math.round((Date.now() - startTime) / 1000);
+          const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
           setStatus(`Analyzing audio... (${elapsedSeconds}s)`);
-        }, 1000);
+        }, 100);
 
         const response = await fetch(apiUrl, {
           method: "POST",
@@ -911,8 +917,7 @@ function LiveDemo({ highContrast }: { highContrast: boolean }) {
               <p className="mono-label text-xs">{isProcessing ? "Processing..." : "Inference output"}</p>
               <h4 className="mt-2 text-2xl font-bold text-white">Probability distribution</h4>
               <p className="mt-2 font-mono text-sm text-slate-300/70">
-                {status}
-              </p>
+               </p>
             </div>
 
             {predictions
@@ -1112,24 +1117,35 @@ export default function Home() {
       });
 
       gsap.utils.toArray<HTMLElement>("[data-hover-lift]").forEach((element) => {
+        const baseBorderColor = getComputedStyle(element).borderColor;
+        const baseBoxShadow = getComputedStyle(element).boxShadow;
+
         const enter = () =>
-          gsap.to(element, {
-            y: -8,
-            scale: 1.015,
-            borderColor: "rgba(0,229,255,0.32)",
-            boxShadow: "0 22px 70px rgba(0,229,255,0.14)",
-            duration: 0.28,
-            ease: "power2.out",
-          });
+          {
+            gsap.killTweensOf(element);
+            gsap.to(element, {
+              y: -10,
+              scale: 1.02,
+              borderColor: "rgba(0,229,255,0.32)",
+              boxShadow: "0 24px 80px rgba(0,229,255,0.16)",
+              duration: 0.34,
+              ease: "power3.out",
+              overwrite: "auto",
+            });
+          };
         const leave = () =>
-          gsap.to(element, {
-            y: 0,
-            scale: 1,
-            borderColor: "rgba(0,229,255,0.14)",
-            boxShadow: "0 28px 70px rgba(0,0,0,0.24)",
-            duration: 0.28,
-            ease: "power2.out",
-          });
+          {
+            gsap.killTweensOf(element);
+            gsap.to(element, {
+              y: 0,
+              scale: 1,
+              borderColor: baseBorderColor,
+              boxShadow: baseBoxShadow,
+              duration: 0.26,
+              ease: "power3.out",
+              overwrite: "auto",
+            });
+          };
 
         element.addEventListener("mouseenter", enter);
         element.addEventListener("mouseleave", leave);
@@ -1452,7 +1468,7 @@ export default function Home() {
                     return (
                       <div
                         key={step.title}
-                        className="diagnostic-card relative min-h-[260px] p-5 transition-transform xl:min-h-[280px]"
+                        className="diagnostic-card relative flex min-h-[260px] flex-col p-5 xl:min-h-[280px]"
                         data-hover-lift
                       >
                         <div className="absolute left-5 top-5 font-mono text-[11px] uppercase tracking-[0.24em] text-white/35">0{index + 1}</div>
@@ -1462,11 +1478,13 @@ export default function Home() {
                         <h3 className="mt-6 text-2xl font-bold text-white">{step.title}</h3>
                         <p className="mt-2 font-mono text-xs uppercase tracking-[0.18em] text-slate-300/60">{step.meta}</p>
                         <p className="mt-5 text-[15px] leading-7 text-slate-300/74">{step.detail}</p>
-                        <div className="mt-6 h-1.5 rounded-full bg-white/6">
+                        <div className="mt-auto pt-6">
+                          <div className="h-1.5 rounded-full bg-white/6">
                           <div
                             className="h-full rounded-full shadow-[0_0_16px_currentColor]"
                             style={{ width: `${38 + index * 14}%`, backgroundColor: step.accent, color: step.accent }}
                           />
+                          </div>
                         </div>
                       </div>
                     );
