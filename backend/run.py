@@ -28,6 +28,7 @@ import time
 import random
 import traceback
 import logging
+import sys
 from pathlib import Path
 from urllib.request import urlretrieve
 
@@ -36,6 +37,9 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Add backend directory to path so imports work from root-level module execution
+sys.path.insert(0, str(Path(__file__).parent))
 
 # ---------------------------------------------------------------------------
 # Logging setup
