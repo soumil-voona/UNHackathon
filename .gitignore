@@ -1,6 +1,7 @@
 node_modules/
 audio_data/
 *.pt
+!best_cough_classifier.pt
 .venv/
 __pycache__/
 *.pyc
