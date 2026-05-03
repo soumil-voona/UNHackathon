@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY api/requirements.txt /app/api/requirements.txt
 RUN pip install --upgrade pip setuptools wheel && \
+    pip install torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu && \
     pip install -r /app/api/requirements.txt
 
 COPY backend /app/backend
