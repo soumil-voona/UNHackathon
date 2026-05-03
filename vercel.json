@@ -3,7 +3,7 @@
   "outputDirectory": "ReactFrontend/dist/public",
   "framework": "vite",
   "functions": {
-    "api/**": {
+    "api/*.py": {
       "maxDuration": 30
     }
   },
