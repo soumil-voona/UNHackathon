@@ -5,6 +5,10 @@ build
 .env.*.local
 *.log
 .DS_Store
+backend
+api
+uploads
+*.pt
 backend/database_config
 kaggle_datasets
 audio_data

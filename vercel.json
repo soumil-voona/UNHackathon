@@ -2,16 +2,7 @@
   "buildCommand": "cd ReactFrontend && npm install && npm run build",
   "outputDirectory": "ReactFrontend/dist/public",
   "framework": "vite",
-  "functions": {
-    "api/*.py": {
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
