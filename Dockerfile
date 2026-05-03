@@ -20,7 +20,6 @@ RUN pip install --upgrade pip setuptools wheel && \
 
 COPY backend /app/backend
 COPY best_cough_classifier.pt /app/best_cough_classifier.pt
-COPY balanced_best_cough_classifier.pt /app/balanced_best_cough_classifier.pt
 
 ENV MODEL_PATH=/app/best_cough_classifier.pt
 ENV PORT=10000
