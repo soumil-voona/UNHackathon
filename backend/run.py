@@ -104,6 +104,7 @@ DISEASE_CLASSES = {
 # ---------------------------------------------------------------------------
 model_loaded = False
 inference = None
+model_load_error = None
 # Resolve model path from env, then fall back to repository defaults.
 env_model_path = os.getenv("MODEL_PATH", "").strip()
 if env_model_path:
@@ -125,11 +126,15 @@ try:
     else:
         inference = None
         model_loaded = False
+        model_load_error = (
+            "checkpoint_not_loaded: CoughInference did not load a checkpoint at startup"
+        )
         log.warning(
             "Model checkpoint not found. Falling back to mock (rule-based) classifier. "
             f"Expected checkpoint at: {MODEL_PATH}"
         )
 except Exception as e:
+    model_load_error = f"exception: {type(e).__name__}: {e}"
     log.warning(
         f"Could not load trained model ({e}). "
         "Falling back to mock (rule-based) classifier. "
@@ -252,6 +257,9 @@ def health_check():
         "model_loaded": model_loaded,
         "mock_mode": not model_loaded,
         "device": runtime_device_label(),
+        "model_path": str(MODEL_PATH),
+        "model_path_exists": MODEL_PATH.exists(),
+        "model_load_error": model_load_error,
     })
 
 
