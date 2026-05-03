@@ -32,7 +32,10 @@ import sys
 from pathlib import Path
 from urllib.request import urlretrieve
 
-import torch
+try:
+    import torch  # type: ignore
+except Exception:  # pragma: no cover - deployment-time fallback
+    torch = None
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -78,6 +81,13 @@ UPLOAD_FOLDER.mkdir(exist_ok=True)
 
 log.info(f"Upload folder: {UPLOAD_FOLDER.absolute()}")
 
+
+def runtime_device_label() -> str:
+    """Return the active runtime device label without hard-failing on missing torch."""
+    if torch is None:
+        return "unavailable (torch not installed)"
+    return str(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
 # Disease classes (mirrors main.py DISEASE_CLASSES)
 DISEASE_CLASSES = {
     0: "Healthy",
@@ -109,7 +119,8 @@ try:
     if inference.model_loaded:
         device = inference.trainer.device
         log.info(f"Trained model loaded on device: {device}")
-        log.info(f"  GPU available: {torch.cuda.is_available()}")
+        gpu_available = torch.cuda.is_available() if torch is not None else False
+        log.info(f"  GPU available: {gpu_available}")
         model_loaded = True
     else:
         inference = None
@@ -240,7 +251,7 @@ def health_check():
         "status": "healthy",
         "model_loaded": model_loaded,
         "mock_mode": not model_loaded,
-        "device": str(torch.device("cuda" if torch.cuda.is_available() else "cpu")),
+        "device": runtime_device_label(),
     })
 
 
@@ -449,7 +460,7 @@ if __name__ == "__main__":
     log.info("Starting CoughNet API")
     log.info(f"  Model loaded : {model_loaded}")
     log.info(f"  Mock mode    : {not model_loaded}")
-    log.info(f"  Device       : {torch.device('cuda' if torch.cuda.is_available() else 'cpu')}")
+    log.info(f"  Device       : {runtime_device_label()}")
     log.info("=" * 60)
     log.info("API docs : http://localhost:8000/docs")
     log.info("Health   : http://localhost:8000/health")
