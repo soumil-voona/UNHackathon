@@ -720,7 +720,7 @@ class CoughClassifierTrainer:
     
     def load_model(self, path):
         """Load the model from disk"""
-        self.model.load_state_dict(torch.load(path, map_location=self.device))
+        self.model.load_state_dict(torch.load(path, map_location=self.device, weights_only=False))
         print(f"Model loaded from {path}")
 
 
