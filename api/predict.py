@@ -19,7 +19,6 @@ log = logging.getLogger(__name__)
 backend_path = Path(__file__).parent.parent / "backend"
 sys.path.insert(0, str(backend_path))
 
-import torch
 from io import BytesIO
 import base64
 
